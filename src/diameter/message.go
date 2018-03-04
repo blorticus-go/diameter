@@ -191,13 +191,14 @@ type Message struct {
 	Avps       []*AVP
 }
 
-// type MessageAttributes struct {
+//type MessageAttributes struct {
 // 	msgName          string
 // 	msgAbbrv         string
 // 	msgCode          Uint24
 // 	msgIsRequest     bool
 // 	msgMandatoryAvps []*AVPAttribute
-// }
+//}
+
 //
 // func NewMessageAttribute(name string, abbrv string, code Uint24,
 // 	is_request bool, mandatoryAvps []*AVPAttribute) *MessageAttributes {
@@ -208,7 +209,7 @@ type Message struct {
 // with the current Message, or nil if the Message has no instances of the AVP
 func (m *Message) FindAVPByCode(code Uint24) *AVP {
 	for _, avp := range m.Avps {
-		if avp.Attribute.code == uint32(code) {
+		if avp.Code == uint32(code) {
 			return avp
 		}
 	}
@@ -303,7 +304,13 @@ func DecodeMessage(input []byte) (*Message, error) {
 	m.Avps = make([]*AVP, 0)
 	b := input[MsgHeaderSize:int(m.Length)]
 	for len(b) > 0 {
-		avp := DecodeAVP(b)
+		var avp *AVP
+		avp, err = DecodeAVP(b)
+
+		if err != nil {
+			return nil, err
+		}
+
 		b = b[avp.PaddedLength:]
 		m.Avps = append(m.Avps, avp)
 	}
@@ -332,7 +339,7 @@ func NewMessage(flags uint8, code Uint24, appID uint32, hopByHopID uint32, endTo
 	for i := 0; i < len(mandatoryAvps); i++ {
 		m.Length += Uint24(mandatoryAvps[i].PaddedLength)
 		m.Avps[i] = mandatoryAvps[i]
-		m.Avps[i].SetMandatoryFlag(true)
+		m.Avps[i].Mandatory = true
 	}
 
 	t := len(mandatoryAvps)
