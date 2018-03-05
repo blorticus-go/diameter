@@ -1,5 +1,31 @@
 package diameter
 
+// AVPDataType is an enumeration of Diameter AVP types
+type AVPDataType int
+
+const (
+	// Unsigned32 indicates AVP type for unsigned 32-bit integer
+	Unsigned32 AVPDataType = 1 + iota
+	// Unsigned64 indicates AVP type for unsigned 64-bit integer
+	Unsigned64
+	// Enumerated indicates AVP type for enumerated (integer)
+	Enumerated
+	// UTF8String indicates AVP type for UTF8String (a UTF8 encoded octet stream)
+	UTF8String
+	// OctetString indicates AVP type for octet string (an arbitrary octet stream)
+	OctetString
+	// Time indicates AVP type for time (unix epoch time as unsigned 32)
+	Time
+	// Address indicates AVP type for address (an IPv4 or IPv6 address with leading type qualifier)
+	Address
+	// DiamIdent indicates AVP type for diameter identity (an octet stream)
+	DiamIdent
+	// DiamURI indicates AVP type for a diameter URI (an octet stream)
+	DiamURI
+	// Grouped indicates AVP type for grouped (a set of AVPs)
+	Grouped
+)
+
 // import (
 // 	"fmt"
 // 	"io/ioutil"
