@@ -3,7 +3,9 @@ package diameter
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"net"
 )
 
 const (
@@ -19,16 +21,52 @@ const (
 	addrIPv6 = 2
 )
 
+// AVPDataType is an enumeration of Diameter AVP types
+type AVPDataType int
+
+const (
+	// Unsigned32 indicates AVP type for unsigned 32-bit integer
+	Unsigned32 AVPDataType = 1 + iota
+	// Unsigned64 indicates AVP type for unsigned 64-bit integer
+	Unsigned64
+	// Enumerated indicates AVP type for enumerated (integer)
+	Enumerated
+	// UTF8String indicates AVP type for UTF8String (a UTF8 encoded octet stream)
+	UTF8String
+	// OctetString indicates AVP type for octet string (an arbitrary octet stream)
+	OctetString
+	// Time indicates AVP type for time (unix epoch time as unsigned 32)
+	Time
+	// Address indicates AVP type for address (an IPv4 or IPv6 address with leading type qualifier)
+	Address
+	// DiamIdent indicates AVP type for diameter identity (an octet stream)
+	DiamIdent
+	// DiamURI indicates AVP type for a diameter URI (an octet stream)
+	DiamURI
+	// Grouped indicates AVP type for grouped (a set of AVPs)
+	Grouped
+)
+
+// AVPExtendedAttributes includes extended AVP attributes that can be
+// provided by, for example, a dictionary.  It includes a human-friendly name
+// and a typed value (e.g., a uint32 for AVPs of Unsigned32 type)
+type AVPExtendedAttributes struct {
+	Name       string
+	DataType   AVPDataType
+	TypedValue interface{}
+}
+
 // AVP represents a Diameter Message AVP
 type AVP struct {
-	Code           uint32
-	VendorSpecific bool
-	Mandatory      bool
-	Protected      bool
-	VendorID       uint32
-	Data           []byte
-	Length         int
-	PaddedLength   int
+	Code               uint32
+	VendorSpecific     bool
+	Mandatory          bool
+	Protected          bool
+	VendorID           uint32
+	Data               []byte
+	Length             int
+	PaddedLength       int
+	ExtendedAttributes *AVPExtendedAttributes
 }
 
 // NewAVP is an AVP constructor
@@ -49,6 +87,9 @@ func NewAVP(code uint32, VendorID uint32, mandatory bool, protected bool, data [
 
 	avp.Length += len(data)
 	avp.updatePaddedLength()
+
+	avp.ExtendedAttributes = nil
+
 	return avp
 }
 
@@ -80,10 +121,70 @@ func appendByteArray(avp *bytes.Buffer, dataBytes []byte) {
 	}
 }
 
-func byteToUint32(data []byte) (ret uint32) {
-	buf := bytes.NewBuffer(data)
-	binary.Read(buf, binary.BigEndian, &ret)
-	return
+// func byteToUint32(data []byte) (ret uint32) {
+// 	buf := bytes.NewBuffer(data)
+// 	binary.Read(buf, binary.BigEndian, &ret)
+// 	return ret
+// }
+
+func (avp *AVP) updateTypedValueFromData(d *Dictionary) error {
+	switch avp.ExtendedAttributes.DataType {
+	case Address:
+		if len(avp.Data) < 2 {
+			return errors.New("AVP attribute type is Address, but data length only 2 bytes")
+		}
+
+		addrType := binary.BigEndian.Uint32(avp.Data[0:2])
+		if addrType == 1 {
+			if len(avp.Data) != 6 {
+				return errors.New("AVP attribute type is Address, type is IPv4, but data length is not 6")
+			}
+		} else if addrType == 2 {
+			if len(avp.Data) != 18 {
+				return errors.New("AVP attribute type is Address, type is IPv6, but data length is not 18")
+			}
+		} else {
+			return errors.New("AVP attribute type is Address and only IPv4 or IPv6 families are supported")
+		}
+
+		avp.ExtendedAttributes.TypedValue = net.IP(avp.Data[2:])
+
+	case Unsigned32, Enumerated:
+		if len(avp.Data) != 4 {
+			return errors.New("AVP attribute type is 32-bit unsigned integer, but data length is not 4 bytes")
+		}
+
+		avp.ExtendedAttributes.TypedValue = binary.BigEndian.Uint32(avp.Data)
+
+	case DiamIdent, UTF8String:
+		avp.ExtendedAttributes.TypedValue = string(avp.Data)
+
+	case Grouped:
+		tv := []*AVP{}
+
+		dataSliceOffset := 0
+
+		for dataSliceOffset < avp.PaddedLength {
+			nextAVP, naArr := DecodeAVP(avp.Data[dataSliceOffset:])
+			if naArr != nil {
+				return fmt.Errorf("Failed to extract Grouped AVP member: %s", naArr.Error())
+			}
+
+			if d != nil {
+				//	nextAVP.AddExtendedAttributesFromDictionary(d)
+			}
+
+			tv = append(tv, nextAVP)
+			dataSliceOffset += nextAVP.PaddedLength - 1
+		}
+
+		avp.ExtendedAttributes.TypedValue = tv
+
+	default:
+		avp.ExtendedAttributes.TypedValue = avp.Data
+	}
+
+	return nil
 }
 
 // Encode produces an octet stream in network byte order from this AVP
