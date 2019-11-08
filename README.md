@@ -1,8 +1,9 @@
+# golang Diameter
+
 ## Use Case Examples
 
 ### Emulate Gx callflow (PCRF and PCEF).  Includes CCR/A PCEF->PCRF and RAR/A PCRF->PCEF
 
-  
 ### Example
 
     d := diameter.dictionary.FromYamlFile( yaml_dictionary_file_path )
@@ -12,7 +13,12 @@
 
     i.StartListening( bind_addr, bind_port )
     p := i.ConnectToPeer( remote_addr, remote_port )
-    p.SendMessage( d.Message( "SLR", [d.Avp( "Origin-Host", ... ), ...] ) )
+    p.SendMessage( d.Message( "SLR", diameter.MessageFlags{}, []*AVP{
+        d.AVP("Origin-Host", "foo.bar.com"),
+        d.AVP("Origin-Realm", "bar.com"), 
+        d.AVP("Auth-Request-Type", "AUTHENTICATE_ONLY"),
+        ...}
+    ) ) )
 
     for {
         msg := i.HandlerChannel

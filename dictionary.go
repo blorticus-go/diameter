@@ -1,185 +1,220 @@
 package diameter
 
 import (
-	"io/ioutil"
+	"fmt"
 
 	yaml "gopkg.in/yaml.v2"
 )
 
-// import (
-// 	"fmt"
-// 	"io/ioutil"
-// 	//	"utils"
-// )
-//
-// Dictionary represents a dictionary of AVP definitions
+// DictionaryYamlAvpEnumerationType is the type for Avp Enumerations
+type DictionaryYamlAvpEnumerationType struct {
+	Name  string `yaml:"Name"`
+	Value uint32 `yaml:"Value"`
+}
+
+// DictionaryYamlAvpType is the type for AvpTypes in a Diameter YAML Dictionary
+type DictionaryYamlAvpType struct {
+	Name        string                             `yaml:"Name"`
+	Code        uint32                             `yaml:"Code"`
+	Type        string                             `yaml:"Type"`
+	VendorID    uint32                             `yaml:"VendorID"`
+	Enumeration []DictionaryYamlAvpEnumerationType `yaml:"Enumeration"`
+}
+
+// DictionaryYamlMessageAbbreviation is the type for MessageTypes.Abbreviations in a Diameter YAML Dictionary
+type DictionaryYamlMessageAbbreviation struct {
+	Request string `yaml:"Request"`
+	Answer  string `yaml:"Answer"`
+}
+
+// DictionaryYamlMessageType is the type for MessageTypes in a Diameter YAML Dictionary
+type DictionaryYamlMessageType struct {
+	Basename      string                            `yaml:"Basename"`
+	Code          uint32                            `yaml:"Code"`
+	Abbreviations DictionaryYamlMessageAbbreviation `yaml:"Abbreviations"`
+}
+
+// DictionaryYaml represents a YAML dictionary containing Diameter message type and AVP definitions
+type DictionaryYaml struct {
+	AvpTypes     []DictionaryYamlAvpType     `yaml:"AvpTypes"`
+	MessageTypes []DictionaryYamlMessageType `yaml:"MessageTypes"`
+}
+
+type dictionaryMessageDescriptor struct {
+	name          string
+	code          uint32
+	isRequestType bool
+}
+
+type dictionaryAvpDescriptor struct {
+	name             string
+	code             uint32
+	isVendorSpecific bool
+	vendorID         uint32
+	dataType         AVPDataType
+}
+
+type avpFullyQualifiedCodeType struct {
+	vendorID uint32
+	code     uint32
+}
+
+// Dictionary is a Diameter dictionary, mapping AVP and message type data to names
 type Dictionary struct {
-	// 	avps                  map[string]*AVPAttributes
-	// 	msgs                  map[string]*MessageAttributes // indexed both by Name and Abbrev
-	// 	panicOnLookupFailures bool
+	messageDescriptorByNameOrAbbreviation map[string]*dictionaryMessageDescriptor
+	requestMessageDescriptorByCode        map[uint32]*dictionaryMessageDescriptor
+	answerMessageDescriptorByCode         map[uint32]*dictionaryMessageDescriptor
+	avpDescriptorByName                   map[string]*dictionaryAvpDescriptor
+	avpDescriptorByFullyQualifiedCode     map[avpFullyQualifiedCodeType]*dictionaryAvpDescriptor
 }
 
-//
-// func check_error(e error) {
-// 	if e != nil {
-// 		panic(e)
-// 	}
-// }
-//
-// ReadYamlDictionaryFile reads a YAML file in the proscribed YAML
-// format for an AVP dictionary
-func ReadYamlDictionaryFile(filename string) (*Dictionary, error) {
-	self := Dictionary{
-		avps: make(map[string]*AVPAttributes),
-		msgs: make(map[string]*MessageAttributes),
-		panicOnLookupFailures: false,
+func fromYamlForm(yamlForm *DictionaryYaml) (*Dictionary, error) {
+	dictionary := Dictionary{
+		messageDescriptorByNameOrAbbreviation: make(map[string]*dictionaryMessageDescriptor),
+		requestMessageDescriptorByCode:        make(map[uint32]*dictionaryMessageDescriptor),
+		answerMessageDescriptorByCode:         make(map[uint32]*dictionaryMessageDescriptor),
+		avpDescriptorByName:                   make(map[string]*dictionaryAvpDescriptor),
+		avpDescriptorByFullyQualifiedCode:     make(map[avpFullyQualifiedCodeType]*dictionaryAvpDescriptor),
 	}
 
-	avpTypeMap := func() map[string]AVPAttributeType {
-		out := make(map[string]AVPAttributeType)
-		for i := Unsigned32; i <= Grouped; i++ {
-			out[i.String()] = i
+	for _, yamlAvpType := range yamlForm.AvpTypes {
+		avpDescriptor := &dictionaryAvpDescriptor{
+			code:     yamlAvpType.Code,
+			name:     yamlAvpType.Name,
+			vendorID: 0,
 		}
-		return out
-	}()
 
-	dat, err := ioutil.ReadFile(filename)
-	utils.CheckError(err)
-
-	m := make(map[interface{}]interface{})
-	err = yaml.Unmarshal([]byte(dat), &m)
-	utils.CheckError(err)
-
-	avpm := utils.CheckMapList(m, "avps")
-
-	for _, entry := range avpm {
-		emap := entry.(map[interface{}]interface{})
-		ename := emap["name"].(string)
-		etype := avpTypeMap[emap["type"].(string)]
-		evalues := make(map[uint32]string)
-
-		if emap["values"] != nil {
-			for _, value := range emap["values"].([]interface{}) {
-				vmap := value.(map[interface{}]interface{})
-				evalues[uint32(vmap["value"].(int))] = vmap["name"].(string)
-			}
+		switch yamlAvpType.Type {
+		case "Unsigned32":
+			avpDescriptor.dataType = Unsigned32
+		case "Unsigned64":
+			avpDescriptor.dataType = Unsigned64
+		case "Integer32":
+			avpDescriptor.dataType = Integer32
+		case "Integer64":
+			avpDescriptor.dataType = Integer64
+		case "Enumerated":
+			avpDescriptor.dataType = Enumerated
+		case "OctetString":
+			avpDescriptor.dataType = OctetString
+		case "UTF8String":
+			avpDescriptor.dataType = UTF8String
+		case "Grouped":
+			avpDescriptor.dataType = Grouped
+		case "Address":
+			avpDescriptor.dataType = Address
+		case "Time":
+			avpDescriptor.dataType = Time
+		case "DiamIdent":
+			avpDescriptor.dataType = DiamIdent
+		case "DiamURI":
+			avpDescriptor.dataType = DiamURI
+		default:
+			return nil, fmt.Errorf("Provided Type (%s) invalid", yamlAvpType.Type)
 		}
-		self.avps[ename] = NewAVPAttributeAndValue(ename,
-			uint32(emap["code"].(int)),
-			uint32(emap["vendorid"].(int)),
-			etype, evalues)
+
+		if yamlAvpType.VendorID != 0 {
+			avpDescriptor.isVendorSpecific = true
+		}
+
+		dictionary.avpDescriptorByName[yamlAvpType.Name] = avpDescriptor
+		dictionary.avpDescriptorByFullyQualifiedCode[avpFullyQualifiedCodeType{code: yamlAvpType.Code, vendorID: yamlAvpType.VendorID}] = avpDescriptor
 	}
 
-	msgm := utils.CheckMapList(m, "messages")
-	for _, entry := range msgm {
-		m_map := entry.(map[interface{}]interface{})
-		m_avps := make([]*AVPAttribute, 0)
-		if m_map["mandatory_avps"] != nil {
-			for _, man := range m_map["mandatory_avps"].([]interface{}) {
-				man_map := man.(map[interface{}]interface{})
-				var avp *AVPAttribute
-				if man_map["code"] != nil {
-					avp = TypeToAVPAttribute[uint32(man_map["code"].(int))]
-				} else if man_map["name"] != nil {
-					avp = self.avps[man_map["name"].(string)]
-				}
-				if avp != nil {
-					m_avp := avp.clone()
-					if man_map["min"] != nil {
-						m_avp.min = man_map["min"].(int)
-					} else {
-						m_avp.min = 1
-					}
-					if man_map["max"] != nil {
-						m_avp.max = man_map["max"].(int)
-					} else {
-						m_avp.max = 1
-					}
-					m_avps = append(m_avps, m_avp)
-				}
-			}
+	for _, yamlMessageType := range yamlForm.MessageTypes {
+		messageDescriptor := &dictionaryMessageDescriptor{
+			code:          yamlMessageType.Code,
+			name:          yamlMessageType.Basename + "-Request",
+			isRequestType: true,
 		}
-		msg_attr := NewMessageAttribute(m_map["name"].(string), m_map["abbreviation"].(string), Uint24(m_map["code"].(int)), m_map["is_request"].(bool), m_avps)
-		self.msgs[msg_attr.msgName] = msg_attr
-		self.msgs[msg_attr.msgAbbrv] = msg_attr
+
+		dictionary.messageDescriptorByNameOrAbbreviation[yamlMessageType.Basename+"-Request"] = messageDescriptor
+		dictionary.messageDescriptorByNameOrAbbreviation[yamlMessageType.Abbreviations.Request] = messageDescriptor
+		dictionary.requestMessageDescriptorByCode[yamlMessageType.Code] = messageDescriptor
+
+		messageDescriptor = &dictionaryMessageDescriptor{
+			code:          yamlMessageType.Code,
+			name:          yamlMessageType.Basename + "-Answer",
+			isRequestType: true,
+		}
+
+		dictionary.messageDescriptorByNameOrAbbreviation[yamlMessageType.Basename+"-Answer"] = messageDescriptor
+		dictionary.messageDescriptorByNameOrAbbreviation[yamlMessageType.Abbreviations.Answer] = messageDescriptor
+		dictionary.answerMessageDescriptorByCode[yamlMessageType.Code] = messageDescriptor
 	}
 
-	return &self, nil
+	return &dictionary, nil
 }
 
-// // AVP returns an AVP with the name 'avp_name' from the loaded dictionary, providing the
-// // value 'typed_data'.  mandatory and protected flags are both set to false.
-// func (self *Dictionary) AVP(avp_name string, typed_data interface{}) *AVP {
-// 	return self.AVPWithFlags(avp_name, map[string]bool{"mandatory": false, "protected": false}, typed_data)
-//
-// }
-//
-// // PanicOnLookupFailures inidcates whether the Dictionary instance should panic() with a message
-// // if a lookup method (e.g., MsgCode()) is provided lookup string is not in the dictionary,
-// // or simply return a flag value
-// func (dict *Dictionary) PanicOnLookupFailures(doso bool) {
-// 	dict.panicOnLookupFailures = doso
-// }
-//
-// // AVPWithFlags returns the same as AVP, but a map of the 'mandatory' and 'protected' flags
-// // is also provided.
-// func (self *Dictionary) AVPWithFlags(avp_name string, flags map[string]bool, typed_data interface{}) *AVP {
-// 	avp := self.avps[avp_name]
-// 	if avp == nil {
-// 		panic(fmt.Errorf("Attribute not found %s", avp_name))
-// 	}
-// 	if flags == nil {
-// 		flags = map[string]bool{}
-// 	}
-// 	mandatory, _ := flags["mandatory"]
-// 	protected, _ := flags["protected"]
-//
-// 	return NewAVP(avp, mandatory, protected, nil, typed_data)
-// }
-//
-// // MsgCode retrieves the Diameter message Code for a particular name (or abbreviation) in the dictionary.
-// // Returns 0 if 'msg_code_name' is not in the dictionary, unless PanicOnLookupFailures is set,
-// // in which case, panic() with message
-// func (dict *Dictionary) MsgCode(msg_code_name string) Uint24 {
-// 	if attr, exists := dict.msgs[msg_code_name]; exists {
-// 		return attr.msgCode
-// 	} else if dict.panicOnLookupFailures {
-// 		panic(fmt.Sprintf("Message code with name [%s] is not in the dictionary", msg_code_name))
-// 	} else {
-// 		return 0
-// 	}
-// }
-//
-// // MsgAttributes retrieves the diameter.MessageAttributes associated with the 'msg_code_name' (which
-// // may either be the proper name or the abbreviation).  Returns nil if the entry is not in the
-// // dictionary, unless PanicOnLookupFailures is set, in which case, panic() with message.
-// // Changes to the returned pointed datastructure will not alter the dictionary
-// func (dict *Dictionary) MsgAttributes(msg_code_name string) *MessageAttributes {
-// 	if val, exists := dict.msgs[msg_code_name]; exists {
-// 		r := new(MessageAttributes)
-// 		r = val
-// 		return r
-// 	} else if dict.panicOnLookupFailures {
-// 		panic(fmt.Sprintf("No entry in dictionary for message named [%s]", msg_code_name))
-// 	} else {
-// 		return nil
-// 	}
-// }
-//
-// func (self *Dictionary) Message(msg_name string, ids map[string]uint32, mandatory []*AVP, additional []*AVP) *Message {
-// 	msg_attr := self.msgs[msg_name]
-// 	if msg_attr == nil {
-// 		panic(fmt.Errorf("Message not found %s", msg_name))
-// 	}
-// 	if ids == nil {
-// 		ids = map[string]uint32{}
-// 	}
-// 	flags := uint8(0x00)
-// 	if msg_attr.msgIsRequest {
-// 		flags &= MsgFlagRequest
-// 	}
-// 	appID, _ := ids["app"]
-// 	hopByHopID, _ := ids["hopByHop"]
-// 	endToEndID, _ := ids["endToEnd"]
-// 	return NewMessage(flags, msg_attr.msgCode, appID, hopByHopID, endToEndID, mandatory, additional)
-// }
+// FromYamlFile processes a file that should be a YAML formatted Diameter dictionary
+func FromYamlFile(filepath string) (*Dictionary, error) {
+	return nil, nil
+}
+
+// FromYamlString reads a string containing a Diameter dictionary in YAML format
+func FromYamlString(yamlString string) (*Dictionary, error) {
+	dictionaryYaml := new(DictionaryYaml)
+	err := yaml.Unmarshal([]byte(yamlString), &dictionaryYaml)
+
+	if err != nil {
+		return nil, err
+	}
+
+	dictionary, err := fromYamlForm(dictionaryYaml)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return dictionary, nil
+
+}
+
+// AvpErrorable returns an AVP based on the dictionary definition.  If the name is not in
+// the dictionary, or the value type is incorrect based on the dictionary definition,
+// return an error.  This is Errorable because it may throw an error.  It is assumed
+// that this will be the uncommon case, because ordinarily, the value will be known in
+// advance by the application creating it.
+func (dictionary *Dictionary) AvpErrorable(name string, value interface{}) (*AVP, error) {
+	descriptor, isInMap := dictionary.avpDescriptorByName[name]
+
+	if !isInMap {
+		return nil, fmt.Errorf("No AVP named (%s) in the dictionary", name)
+	}
+
+	return NewTypedAVPErrorable(descriptor.code, descriptor.vendorID, false, descriptor.dataType, value)
+}
+
+// AVP is the same as AvpErrorable, except that, if an error occurs, panic() is invoked
+// with the error string
+func (dictionary *Dictionary) AVP(name string, value interface{}) *AVP {
+	avp, err := dictionary.AvpErrorable(name, value)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return avp
+}
+
+// MessageFlags provides the Diameter Message flag types
+type MessageFlags struct {
+	Proxiable           bool
+	Error               bool
+	PotentialRetransmit bool
+}
+
+// MessageErrorable returns a Message based on the dictionary definition.  If the name is
+// not present in the dictionary, an error is returned.  The AVP set will be re-arranged to
+// match the AVP order presented in the dictionary for the message type, and the mandatory
+// flag will be changed to match the definition for the message type.  An error, however, is
+// not raised if a mandatory flag is not present.
+func (dictionary *Dictionary) MessageErrorable(name string, flags MessageFlags, avps []*AVP) (*Message, error) {
+	return nil, nil
+}
+
+// Message is the same as MessageErrorable, except that, if an error occurs, panic() is
+// invoked with the error string
+func (dictionary *Dictionary) Message(name string, flags MessageFlags, avps []*AVP) *Message {
+	return nil
+}

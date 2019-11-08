@@ -1,0 +1,388 @@
+---
+AvpTypes:
+    - Name: "Acct-Interim-Interval"
+      Code: 85
+      Type: "Unsigned32"
+    - Name: "Accounting-Realtime-Required"
+      Code: 483
+      Type: "Enumerated"
+      Enumeration:
+        - Name: "DELIVER_AND_GRANT"
+          Value: 1
+        - Name: "GRANT_AND_STORE"
+          Value: 2
+        - Name: "GRANT_AND_LOSE"
+          Value: 3
+    - Name: "Acct-Multi-Session-Id"
+      Code: 50
+      Type: "UTF8String"
+    - Name: "Accounting-Record-Number"
+      Code: 485
+      Type: "Unsigned32"
+    - Name: "Accounting-Record-Type"
+      Code: 480
+      Type: "Enumerated"
+      Enumeration:
+        - Name: "EVENT_RECORD"
+          Value: 1
+        - Name: "START_RECORD"
+          Value: 2
+        - Name: "INTERIM_RECORD"
+          Value: 3
+        - Name: "STOP_RECORD"
+          Value: 4
+    - Name: "Acct-Session-Id"
+      Code: 44
+      Type: "OctetString"
+    - Name: "Accounting-Sub-Session-Id"
+      Code: 287
+      Type: "Unsigned64"
+    - Name: "Acct-Application-Id"
+      Code: 259
+      Type: "Unsigned32"
+    - Name: "Auth-Application-Id"
+      Code: 258
+      Type: "Unsigned32"
+    - Name: "Auth-Request-Type"
+      Code: 274
+      Type: "Enumerated"
+      Enumeration:
+        - Name: "AUTHENTICATE_ONLY"
+          Value: 1
+        - Name: "AUTHORIZE_ONLY"
+          Value: 2
+        - Name: "AUTHORIZE_AUTHENTICATE"
+          Value: 3
+    - Name: "Authorization-Lifetime"
+      Code: 291
+      Type: "Unsigned32"
+    - Name: "Auth-Grace-Period"
+      Code: 276
+      Type: "Unsigned32"
+    - Name: "Auth-Session-State"
+      Code: 277
+      Type: "Enumerated"
+      Enumeration:
+        - Name: "STATE_MAINTAINED"
+          Value: 0
+        - Name: "NO_STATE_MAINTAINED"
+          Value: 1
+    - Name: "Re-Auth-Request-Type"
+      Code: 285
+      Type: "Enumerated"
+      Enumeration:
+        - Name: "AUTHORIZE_ONLY"
+          Value: 0
+        - Name: "AUTHORIZE_AUTHENTICATE"
+          Value: 1
+    - Name: "Destination-Host"
+      Code: 293
+      Type: "DiamIdent"
+    - Name: "Destination-Realm"
+      Code: 283
+      Type: "DiamIdent"
+    - Name: "Error-Message"
+      Code: 281
+      Type: "UTF8String"
+    - Name: "Error-Reporting-Host"
+      Code: 294
+      Type: "DiamIdent"
+    - Name: "Experimental-Result"
+      Code: 297
+      Type: "Grouped"
+      Children:
+        - AvpName: "Vendor-Id"
+        - AvpName: "Experimental-Result-Code"
+    - Name: "Experimental-Result-Code"
+      Code: 298
+      Type: "Unsigned32"
+    - Name: "Firmware-Revision"
+      Code: 267
+      Type: "Unsigned32"
+    - Name: "Host-IP-AddressInband-Security"
+      Code: 257
+      Type: "Address"
+    - Name: "Multi-Round-Time-Out"
+      Code: 272
+      Type: "Unsigned32"
+    - Name: "Origin-Realm"
+      Code: 296
+      Type: "DiamIdent"
+    - Name: "Origin-State-Id"
+      Code: 278
+      Type: "Unsigned32"
+    - Name: "Product-Name"
+      Code: 269
+      Type: "UTF8String"
+    - Name: "Proxy-Host"
+      Code: 280
+      Type: "DiamIdent"
+    - Name: "Proxy-Info"
+      Code: 284
+      Type: "Grouped"
+      Children:
+        - AvpName: "ProxyHost"
+        - AvpName: "ProxyState"
+    - Name: "Proxy-State"
+      Code: 33
+      Type: "OctetString"
+    - Name: "Redirect-Host"
+      Code: 292
+      Type: "DiamURI"
+    - Name: "Redirect-Host-Usage"
+      Code: 261
+      Type: "Enumerated"
+      Enumeration:
+        - Name: "DONT_CACHE"
+          Value: 0
+        - Name: "ALL_SESSION"
+          Value: 1
+        - Name: "ALL_REALM"
+          Value: 2
+        - Name: "REALM_AND_APPLICATION"
+          Value: 3
+        - Name: "ALL_APPLICATION"
+          Value: 4
+        - Name: "ALL_HOST"
+          Value: 5
+        - Name: "ALL_USER"
+          Value: 6
+    - Name: "Redirect-Max-Cache-Time"
+      Code: 262
+      Type: "Unsigned32"
+    - Name: "Route-Record"
+      Code: 282
+      Type: "DiamIdent"
+    - Name: "Session-Id"
+      Code: 263
+      Type: "UTF8String"
+    - Name: "Session-Timeout"
+      Code: 27
+      Type: "Unsigned32"
+    - Name: "Session-Binding"
+      Code: 270
+      Type: "Unsigned32"
+    - Name: "Session-Server-Failover"
+      Code: 271
+      Type: "Enumerated"
+      Enumeration:
+        - Name: "REFUSE_SERVICE"
+          Value: 0
+        - Name: "TRY_AGAIN"
+          Value: 1
+        - Name: "ALLOW_SERVICE"
+          Value: 2
+        - Name: "TRY_AGAIN_ALLOW_SERVICE"
+          Value: 3
+    - Name: "Supported-Vendor-Id"
+      Code: 265
+      Type: "Unsigned32"
+    - Name: "Termination-Cause"
+      Code: 295
+      Type: "Enumerated"
+      Enumeration:
+        - Name: "DIAMETER_LOGOUT"
+        - Value: 1
+        - Name: "DIAMETER_SERVICE_NOT_PROVIDED"
+        - Value: 2
+        - Name: "DIAMETER_BAD_ANSWER"
+        - Value: 3
+        - Name: "DIAMETER_ADMINISTRATIVE"
+        - Value: 4
+        - Name: "DIAMETER_LINK_BROKEN"
+        - Value: 5
+        - Name: "DIAMETER_AUTH_EXPIRED"
+        - Value: 6
+        - Name: "DIAMETER_USER_MOVED"
+        - Value: 7
+        - Name: "DIAMETER_SESSION_TIMEOUT"
+        - Value: 8
+        - Name: "User Request"
+        - Value: 11
+        - Name: "Lost Carrier"
+        - Value: 12
+        - Name: "Lost Service"
+        - Value: 13
+        - Name: "Idle Timeout"
+        - Value: 14
+        - Name: "Session Timeout"
+        - Value: 15
+        - Name: "Admin Reset"
+        - Value: 16
+        - Name: "Admin Reboot"
+        - Value: 17
+        - Name: "Port Error"
+        - Value: 18
+        - Name: "NAS Error"
+        - Value: 19
+        - Name: "NAS Request"
+        - Value: 20
+        - Name: "NAS Reboot"
+        - Value: 21
+        - Name: "Port Unneeded"
+        - Value: 22
+        - Name: "Port Preempted"
+        - Value: 23
+        - Name: "Port Suspended"
+        - Value: 24
+        - Name: "Service Unavailable"
+        - Value: 25
+        - Name: "Callback"
+        - Value: 26
+        - Name: "User Error"
+        - Value: 27
+        - Name: "Host Request"
+        - Value: 28
+        - Name: "Supplicant Restart"
+        - Value: 29
+        - Name: "Reauthentication Failure"
+        - Value: 30
+        - Name: "Port Reinitialized"
+        - Value: 31
+        - Name: "Port Administratively Disabled"
+        - Value: 32
+    - Name: "Vendor-Id"
+      Code: 266
+      Type: "Unsigned32"
+    - Name: "Vendor-Specific-Application-Id"
+      Code: 260
+      Type: "Grouped"
+      Children:
+        - AvpName: "Vendor-Id"
+        - AvpName: "Auth-Application-Id"
+        - AvpName: "Acct-Application-Id"
+    - Name: "Experimental-Result-Code"
+      Code: 298
+      Type: "Unsigned32"
+    - Name: "Firmware-Revision"
+      Code: 267
+      Type: "Unsigned32"
+    - Name: "Host-IP-AddressInband-Security"
+      Code: 257
+      Type: "Address"
+    - Name: "Multi-Round-Time-Out"
+      Code: 272
+      Type: "Unsigned32"
+    - Name: "Origin-Realm"
+      Code: 296
+      Type: "DiamIdent"
+    - Name: "Origin-State-Id"
+      Code: 278
+      Type: "Unsigned32"
+    - Name: "Product-Name"
+      Code: 269
+      Type: "UTF8String"
+    - Name: "Proxy-Host"
+      Code: 280
+      Type: "DiamIdent"
+    - Name: "Proxy-Info"
+      Code: 284
+      Type: "Grouped"
+      Children:
+        - AvpName: "ProxyHost"
+        - AvpName: "ProxyState"
+    - Name: "Proxy-State"
+      Code: 33
+      Type: "OctetString"
+    - Name: "Redirect-Host"
+      Code: 292
+      Type: "DiamURI"
+    - Name: "Redirect-Host-Usage"
+      Code: 261
+      Type: "Enumerated"
+      Enumeration:
+        - Name: "DONT_CACHE"
+        - Value: 0
+        - Name: "ALL_SESSION"
+        - Value: 1
+        - Name: "ALL_REALM"
+        - Value: 2
+        - Name: "REALM_AND_APPLICATION"
+        - Value: 3
+        - Name: "ALL_APPLICATION"
+        - Value: 4
+        - Name: "ALL_HOST"
+        - Value: 5
+        - Name: "ALL_USER"
+        - Value: 6
+    - Name: "Redirect-Max-Cache-Time"
+      Code: 262
+      Type: "Unsigned32"
+    - Name: "Route-Record"
+      Code: 282
+      Type: "DiamIdent"
+    - Name: "Session-Id"
+      Code: 263
+      Type: "UTF8String"
+    - Name: "Session-Timeout"
+      Code: 27
+      Type: "Unsigned32"
+    - Name: "Session-Binding"
+      Code: 270
+      Type: "Unsigned32"
+    - Name: "Session-Server-Failover"
+      Code: 271
+      Type: "Enumerated"
+      Enumeration:
+        - Name: "REFUSE_SERVICE"
+          Value: 0
+        - Name: "TRY_AGAIN"
+          Value: 1
+        - Name: "ALLOW_SERVICE"
+          Value: 2
+        - Name: "TRY_AGAIN_ALLOW_SERVICE"
+          Value: 3
+    - Name: "Supported-Vendor-Id"
+      Code: 265
+      Type: "Unsigned32"
+    - Name: "Vendor-Id"
+      Code: 266
+      Type: "Unsigned32"
+    - Name: "Vendor-Specific-Application-Id"
+      Code: 260
+      Type: "Grouped"
+      Children:
+        - AvpName: "Vendor-Id"
+        - AvpName: "Auth-Application-Id"
+        - AvpName: "Acct-Application-Id"
+MessageTypes:
+    - Basename: "Abort-Session"
+      Abbreviations:
+          Request: "ASR"
+          Answer: "ASA"
+      Code: 274
+    - Basename: "Accouting"
+      Abbreviations:
+          Request: "ACR"
+          Answer: "ACA"
+      Code: 271
+    - Basename: "Capabilities-Exchange"
+      Abbreviations:
+          Request: "CER"
+          Answer: "CEA"
+      Code: 257
+    - Basename: "Device-Watchdog"
+      Abbreviations:
+          Request: "DWR"
+          Answer: "DWA"
+      Code: 280
+    - Basename: "Disconnect-Peer"
+      Abbreviations:
+          Request: "DPR"
+          Answer: "DPA"
+      Code: 282
+    - Basename: "Disconnect-Peer"
+      Abbreviations:
+          Request: "DPR"
+          Answer: "DPA"
+      Code: 282
+    - Basename: "Re-Auth"
+      Abbreviations:
+          Request: "RAR"
+          Answer: "RAA"
+      Code: 258
+    - Basename: "Session-Termination"
+      Abbreviations:
+          Request: "STR"
+          Answer: "STA"
+      Code: 275

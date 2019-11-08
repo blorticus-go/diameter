@@ -29,6 +29,14 @@ const (
 	Unsigned32 AVPDataType = 1 + iota
 	// Unsigned64 indicates AVP type for unsigned 64-bit integer
 	Unsigned64
+	// Integer32 indicates AVP type for signed 32-bit integer
+	Integer32
+	// Integer64 indicates AVP type for signed 64-bit integer
+	Integer64
+	// Float32 indicates AVP type for signed 32-bit floating point
+	Float32
+	// Float64 indicates AVP type for signed 64-bit floating point
+	Float64
 	// Enumerated indicates AVP type for enumerated (integer)
 	Enumerated
 	// UTF8String indicates AVP type for UTF8String (a UTF8 encoded octet stream)
@@ -45,6 +53,8 @@ const (
 	DiamURI
 	// Grouped indicates AVP type for grouped (a set of AVPs)
 	Grouped
+	// IPFilterRule indicates AVP type for IP Filter Rule
+	IPFilterRule
 )
 
 // AVPExtendedAttributes includes extended AVP attributes that can be
@@ -70,7 +80,7 @@ type AVP struct {
 }
 
 // NewAVP is an AVP constructor
-func NewAVP(code uint32, VendorID uint32, mandatory bool, protected bool, data []byte) *AVP {
+func NewAVP(code uint32, VendorID uint32, mandatory bool, data []byte) *AVP {
 	avp := new(AVP)
 	avp.Code = code
 	avp.VendorID = VendorID
@@ -80,7 +90,7 @@ func NewAVP(code uint32, VendorID uint32, mandatory bool, protected bool, data [
 		avp.VendorSpecific = false
 	}
 	avp.Mandatory = mandatory
-	avp.Protected = protected
+	avp.Protected = false
 	avp.Data = data
 
 	avp.Length = avpHeaderLength
@@ -90,6 +100,258 @@ func NewAVP(code uint32, VendorID uint32, mandatory bool, protected bool, data [
 
 	avp.ExtendedAttributes = nil
 
+	return avp
+}
+
+// NewTypedAVPErrorable is an AVP constructor provided typed data rather than the raw data.  Returns an
+// error if the value is not convertible from the avpType.  The ExtendedAttributes will be set, but the
+// Name will be the empty string
+func NewTypedAVPErrorable(code uint32, vendorID uint32, mandatory bool, avpType AVPDataType, value interface{}) (*AVP, error) {
+	var data []byte
+
+	switch avpType {
+	case Unsigned32:
+		v, isUnsigned32 := value.(uint32)
+
+		if !isUnsigned32 {
+			return nil, fmt.Errorf("AVP type should be Unsigned32, but is not")
+		}
+
+		data = make([]byte, 4)
+		binary.BigEndian.PutUint32(data, v)
+
+	case Unsigned64:
+		v, isUnsigned64 := value.(uint64)
+
+		if !isUnsigned64 {
+			return nil, fmt.Errorf("AVP type should be Unsigned64, but is not")
+		}
+
+		data = make([]byte, 8)
+		binary.BigEndian.PutUint64(data, v)
+
+	case Integer32:
+		v, isInt32 := value.(int32)
+
+		if !isInt32 {
+			return nil, fmt.Errorf("AVP type should be int32, but is not")
+		}
+
+		buf := new(bytes.Buffer)
+		binary.Write(buf, binary.BigEndian, v)
+
+		data = buf.Bytes()
+
+	case Integer64:
+		v, isInt64 := value.(int64)
+
+		if !isInt64 {
+			return nil, fmt.Errorf("AVP type should be int64, but is not")
+		}
+
+		buf := new(bytes.Buffer)
+		binary.Write(buf, binary.BigEndian, v)
+
+		data = buf.Bytes()
+
+	case Float32:
+		v, isFloat32 := value.(float32)
+
+		if !isFloat32 {
+			return nil, fmt.Errorf("AVP type should be float32, but is not")
+		}
+
+		buf := new(bytes.Buffer)
+		binary.Write(buf, binary.BigEndian, v)
+
+		data = buf.Bytes()
+
+	case Float64:
+		v, isFloat64 := value.(float64)
+
+		if !isFloat64 {
+			return nil, fmt.Errorf("AVP type should be float64, but is not")
+		}
+
+		buf := new(bytes.Buffer)
+		binary.Write(buf, binary.BigEndian, v)
+
+		data = buf.Bytes()
+
+	case UTF8String:
+		v, isString := value.(string)
+
+		if isString {
+			data = []byte(v)
+		} else {
+			v, isByteSlice := value.([]byte)
+
+			if !isByteSlice {
+				return nil, fmt.Errorf("AVP type should be string or []byte, but is neither")
+			}
+
+			data = v
+		}
+
+	case OctetString:
+		v, isByteSlice := value.([]byte)
+
+		if !isByteSlice {
+			return nil, fmt.Errorf("AVP type should []byte, but is not")
+		}
+
+		data = v
+
+	case Enumerated:
+		v, isInt32 := value.(int32)
+
+		if !isInt32 {
+			return nil, fmt.Errorf("AVP type should be int32, but is not")
+		}
+
+		buf := new(bytes.Buffer)
+		binary.Write(buf, binary.BigEndian, v)
+
+		data = buf.Bytes()
+
+	case Time:
+		v, isByteSlice := value.([]byte)
+
+		if !isByteSlice {
+			return nil, fmt.Errorf("AVP type should []byte, but is not")
+		}
+
+		if len(v) != 4 {
+			return nil, fmt.Errorf("AVP byte length must be 4, but is (%d)", len(v))
+		}
+
+		data = v
+
+	case Address:
+		v, isIP := value.(net.IP)
+
+		if !isIP {
+			w, isIPAddr := value.(net.IPAddr)
+
+			if !isIPAddr {
+				return nil, fmt.Errorf("AVP type should be net.IP or net.IPAddr, but is neither")
+			}
+
+			v = w.IP
+		}
+
+		if v.To4() == nil {
+			data = make([]byte, 18)
+			data[0] = 0x00
+			data[1] = 0x02
+			copy(data[2:], v.To16())
+		} else {
+			data = make([]byte, 6)
+			data[0] = 0x00
+			data[1] = 0x01
+			copy(data[2:], v.To4())
+		}
+
+	case DiamIdent:
+		v, isByteSlice := value.([]byte)
+
+		if !isByteSlice {
+			return nil, fmt.Errorf("AVP type should []byte, but is not")
+		}
+
+		if len(v) != 4 {
+			return nil, fmt.Errorf("AVP byte length must be 4, but is (%d)", len(v))
+		}
+
+		data = v
+
+	case DiamURI:
+		v, isByteSlice := value.([]byte)
+
+		if !isByteSlice {
+			return nil, fmt.Errorf("AVP type should []byte, but is not")
+		}
+
+		data = v
+
+	case Grouped:
+		v, isAvpSlice := value.([]*AVP)
+
+		if !isAvpSlice {
+			return nil, fmt.Errorf("AVP type should []*AVP, but is not")
+		}
+
+		avpDataLen := 0
+		for _, avp := range v {
+			avpDataLen += avp.PaddedLength
+		}
+
+		data = make([]byte, 0, avpDataLen)
+
+		for _, avp := range v {
+			data = append(data, avp.Encode()...)
+		}
+
+	case IPFilterRule:
+		v, isString := value.(string)
+
+		if isString {
+			data = []byte(v)
+		} else {
+			v, isByteSlice := value.([]byte)
+
+			if !isByteSlice {
+				return nil, fmt.Errorf("AVP type should be string or []byte, but is neither")
+			}
+
+			data = v
+		}
+	}
+
+	isVendorSpecific := false
+	if vendorID != 0 {
+		isVendorSpecific = true
+	}
+
+	paddedLength := len(data)
+	carry := len(data) % 4
+	if carry > 0 {
+		paddedLength += (4 - carry)
+	}
+
+	return &AVP{
+		Code:           code,
+		VendorID:       vendorID,
+		VendorSpecific: isVendorSpecific,
+		Mandatory:      mandatory,
+		Protected:      false,
+		Data:           data,
+		Length:         len(data),
+		PaddedLength:   paddedLength,
+		ExtendedAttributes: &AVPExtendedAttributes{
+			DataType:   avpType,
+			TypedValue: value,
+			Name:       "",
+		},
+	}, nil
+}
+
+// NewTypedAVP is the same as NewTypedAVPErrorable, except that it raises panic() on an error
+func NewTypedAVP(code uint32, vendorID uint32, mandatory bool, avpType AVPDataType, value interface{}) *AVP {
+	avp, err := NewTypedAVPErrorable(code, vendorID, mandatory, avpType, value)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return avp
+}
+
+// MakeProtected sets avp.Protected to true and returns the AVP reference.  It is so rare for
+// this flag to be set, this provides a convenient method to set the value inline after
+// AVP creation
+func (avp *AVP) MakeProtected() *AVP {
+	avp.Protected = true
 	return avp
 }
 
@@ -120,12 +382,6 @@ func appendByteArray(avp *bytes.Buffer, dataBytes []byte) {
 		fmt.Println("binary.Write failed:", err)
 	}
 }
-
-// func byteToUint32(data []byte) (ret uint32) {
-// 	buf := bytes.NewBuffer(data)
-// 	binary.Read(buf, binary.BigEndian, &ret)
-// 	return ret
-// }
 
 func (avp *AVP) updateTypedValueFromData(d *Dictionary) error {
 	switch avp.ExtendedAttributes.DataType {
