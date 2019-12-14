@@ -68,6 +68,43 @@ type Dictionary struct {
 	avpDescriptorByFullyQualifiedCode     map[avpFullyQualifiedCodeType]*dictionaryAvpDescriptor
 }
 
+var mapOfYamlAvpTypeStringToAVPDataType = map[string]AVPDataType{
+	"Unsigned32":  Unsigned32,
+	"Unsigned64":  Unsigned64,
+	"Integer32":   Integer32,
+	"Integer64":   Integer64,
+	"Enumerated":  Enumerated,
+	"OctetString": OctetString,
+	"UTF8String":  UTF8String,
+	"Grouped":     Grouped,
+	"Address":     Address,
+	"Time":        Time,
+	"DiamIdent":   DiamIdent,
+	"DiamURI":     DiamURI,
+}
+
+func convertYamlAvpToDictionaryAvpDescriptor(yamlAvp *DictionaryYamlAvpType) (*dictionaryAvpDescriptor, error) {
+	avpDescriptor := &dictionaryAvpDescriptor{
+		code:     yamlAvp.Code,
+		name:     yamlAvp.Name,
+		vendorID: 0,
+	}
+
+	if avpDataType, typeStringIsRecognized := mapOfYamlAvpTypeStringToAVPDataType[yamlAvp.Type]; typeStringIsRecognized {
+		avpDescriptor.dataType = avpDataType
+	} else {
+		return nil, fmt.Errorf("Provided Type (%s) invalid", yamlAvp.Type)
+	}
+
+	if yamlAvp.VendorID != 0 {
+		avpDescriptor.isVendorSpecific = true
+	}
+
+	return avpDescriptor, nil
+}
+
+// fromYamlForm converts a DictionaryYaml to a Dictionary.  Returns error if a failure occurs
+// or the values in the DictionaryYaml are malformed.
 func fromYamlForm(yamlForm *DictionaryYaml) (*Dictionary, error) {
 	dictionary := Dictionary{
 		messageDescriptorByNameOrAbbreviation: make(map[string]*dictionaryMessageDescriptor),
@@ -78,43 +115,10 @@ func fromYamlForm(yamlForm *DictionaryYaml) (*Dictionary, error) {
 	}
 
 	for _, yamlAvpType := range yamlForm.AvpTypes {
-		avpDescriptor := &dictionaryAvpDescriptor{
-			code:     yamlAvpType.Code,
-			name:     yamlAvpType.Name,
-			vendorID: 0,
-		}
+		avpDescriptor, err := convertYamlAvpToDictionaryAvpDescriptor(&yamlAvpType)
 
-		switch yamlAvpType.Type {
-		case "Unsigned32":
-			avpDescriptor.dataType = Unsigned32
-		case "Unsigned64":
-			avpDescriptor.dataType = Unsigned64
-		case "Integer32":
-			avpDescriptor.dataType = Integer32
-		case "Integer64":
-			avpDescriptor.dataType = Integer64
-		case "Enumerated":
-			avpDescriptor.dataType = Enumerated
-		case "OctetString":
-			avpDescriptor.dataType = OctetString
-		case "UTF8String":
-			avpDescriptor.dataType = UTF8String
-		case "Grouped":
-			avpDescriptor.dataType = Grouped
-		case "Address":
-			avpDescriptor.dataType = Address
-		case "Time":
-			avpDescriptor.dataType = Time
-		case "DiamIdent":
-			avpDescriptor.dataType = DiamIdent
-		case "DiamURI":
-			avpDescriptor.dataType = DiamURI
-		default:
-			return nil, fmt.Errorf("Provided Type (%s) invalid", yamlAvpType.Type)
-		}
-
-		if yamlAvpType.VendorID != 0 {
-			avpDescriptor.isVendorSpecific = true
+		if err != nil {
+			return nil, err
 		}
 
 		dictionary.avpDescriptorByName[yamlAvpType.Name] = avpDescriptor
