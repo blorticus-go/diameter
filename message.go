@@ -2,7 +2,6 @@ package diameter
 
 import (
 	"bytes"
-	"container/list"
 	"encoding/binary"
 	"errors"
 )
@@ -20,165 +19,6 @@ const (
 	MsgHeaderSize              = Uint24(20)
 )
 
-// const (
-// 	CodeAARequest                          = 265
-// 	CodeAAR                                = 265
-// 	CodeAAAnswer                           = 265
-// 	CodeAAA                                = 265
-// 	CodeDiameterEAPRequest                 = 268
-// 	CodeDER                                = 268
-// 	CodeDiameterEAPAnswer                  = 268
-// 	CodeDEA                                = 268
-// 	CodeAbortSessionRequest                = 274
-// 	CodeASR                                = 274
-// 	CodeAbortSessionAnswer                 = 274
-// 	CodeASA                                = 274
-// 	CodeAccountingRequest                  = 271
-// 	CodeACR                                = 271
-// 	CodeAccountingAnswer                   = 271
-// 	CodeACA                                = 271
-// 	CodeCreditControlRequest               = 272
-// 	CodeCCR                                = 272
-// 	CodeCreditControlAnswer                = 272
-// 	CodeCCA                                = 272
-// 	CodeCapabilitiesExchangeRequest        = 257
-// 	CodeCER                                = 257
-// 	CodeCapabilitiesExchangeAnswer         = 257
-// 	CodeCEA                                = 257
-// 	CodeDeviceWatchdogRequest              = 280
-// 	CodeDWR                                = 280
-// 	CodeDeviceWatchdogAnswer               = 280
-// 	CodeDWA                                = 280
-// 	CodeDisconnectPeerRequest              = 282
-// 	CodeDPR                                = 282
-// 	CodeDisconnectPeerAnswer               = 282
-// 	CodeDPA                                = 282
-// 	CodeReAuthRequest                      = 258
-// 	CodeRAR                                = 258
-// 	CodeReAuthAnswer                       = 258
-// 	CodeRAA                                = 258
-// 	CodeSessionTerminationRequest          = 275
-// 	CodeSTR                                = 275
-// 	CodeSessionTerminationAnswer           = 275
-// 	CodeSTA                                = 275
-// 	CodeUserAuthorizationRequest           = 283
-// 	CodeUAR                                = 283
-// 	CodeUserAuthorizationAnswer            = 283
-// 	CodeUAA                                = 283
-// 	CodeServerAssignmentRequest            = 284
-// 	CodeSAR                                = 284
-// 	CodeServerAssignmentAnswer             = 284
-// 	CodeSAA                                = 284
-// 	CodeLocationInfoRequest                = 285
-// 	CodeLIR                                = 285
-// 	CodeLocationInfoAnswer                 = 285
-// 	CodeLIA                                = 285
-// 	CodeMultimediaAuthRequest              = 286
-// 	CodeMAR                                = 286
-// 	CodeMultimediaAuthAnswer               = 286
-// 	CodeMAA                                = 286
-// 	CodeRegistrationTerminationRequest     = 287
-// 	CodeRTR                                = 287
-// 	CodeRegistrationTerminationAnswer      = 287
-// 	CodeRTA                                = 287
-// 	CodePushProfileRequest                 = 288
-// 	CodePPR                                = 288
-// 	CodePushProfileAnswer                  = 288
-// 	CodePPA                                = 288
-// 	Code3GPPUserAuthorizationRequest       = 300
-// 	Code3GPPUAR                            = 300
-// 	Code3GPPUserAuthorizationAnswer        = 300
-// 	Code3GPPUAA                            = 300
-// 	Code3GPPServerAssignmentRequest        = 301
-// 	Code3GPPSAR                            = 301
-// 	Code3GPPServerAssignmentAnswer         = 301
-// 	Code3GPPSAA                            = 301
-// 	Code3GPPLocationInfoRequest            = 302
-// 	Code3GPPLIR                            = 302
-// 	Code3GPPLocationInfoAnswer             = 302
-// 	Code3GPPLIA                            = 302
-// 	Code3GPPMultimediaAuthRequest          = 303
-// 	Code3GPPMAR                            = 303
-// 	Code3GPPMultimediaAuthAnswer           = 303
-// 	Code3GPPMAA                            = 303
-// 	Code3GPPRegistrationTerminationRequest = 304
-// 	Code3GPPRTR                            = 304
-// 	Code3GPPRegistrationTerminationAnswer  = 304
-// 	Code3GPPRTA                            = 304
-// 	Code3GPPPushProfileRequest             = 305
-// 	Code3GPPPPR                            = 305
-// 	Code3GPPPushProfileAnswer              = 305
-// 	Code3GPPPPA                            = 305
-// 	CodeUserDataRequest                    = 306
-// 	CodeUDR                                = 306
-// 	CodeUserDataAnswer                     = 306
-// 	CodeUDA                                = 306
-// 	CodeProfileUpdateRequest               = 307
-// 	CodePUR                                = 307
-// 	CodeProfileUpdateAnswer                = 307
-// 	CodePUA                                = 307
-// 	CodeSubscribeNotificationsRequest      = 308
-// 	CodeSNR                                = 308
-// 	CodeSubscribeNotificationsAnswer       = 308
-// 	CodeSNA                                = 308
-// 	CodePushNotificationRequest            = 309
-// 	CodePNR                                = 309
-// 	CodePushNotificationAnswer             = 309
-// 	CodePNA                                = 309
-// 	CodeBootstrappingInfoRequest           = 310
-// 	CodeBIR                                = 310
-// 	CodeBootstrappingInfoAnswer            = 310
-// 	CodeBIA                                = 310
-// 	CodeMessageProcessRequest              = 311
-// 	CodeMPR                                = 311
-// 	CodeMessageProcessAnswer               = 311
-// 	CodeMPA                                = 311
-// 	CodeUpdateLocationRequest              = 316
-// 	CodeULR                                = 316
-// 	CodeUpdateLocationAnswer               = 316
-// 	CodeULA                                = 316
-// 	CodeCancelLocationRequest              = 317
-// 	CodeCLR                                = 317
-// 	CodeCancelLocationAnswer               = 317
-// 	CodeCLA                                = 317
-// 	CodeAuthenticationInformationRequest   = 318
-// 	CodeAIR                                = 318
-// 	CodeAuthenticationInformationAnswer    = 318
-// 	CodeAIA                                = 318
-// 	CodeInsertSubscriberDataRequest        = 319
-// 	CodeISDR                               = 319
-// 	CodeInsertSubscriberDataAnswer         = 319
-// 	CodeISDA                               = 319
-// 	CodeDeleteSubscriberDataRequest        = 320
-// 	CodeDSDR                               = 320
-// 	CodeDeleteSubscriberDataAnswer         = 320
-// 	CodeDSDA                               = 320
-// 	CodePurgeUERequest                     = 321
-// 	CodePER                                = 321
-// 	CodePurgeUEAnswer                      = 321
-// 	CodePEA                                = 321
-// 	CodeNotifyRequest                      = 323
-// 	CodeNR                                 = 323
-// 	CodeNotifyAnswer                       = 323
-// 	CodeNA                                 = 323
-// 	CodeProvideLocationRequest             = 8388620
-// 	CodePLR                                = 8388620
-// 	CodeProvideLocationAnswer              = 8388620
-// 	CodePLA                                = 8388620
-// 	CodeRoutingInfoRequest                 = 8388622
-// 	CodeRIR                                = 8388622
-// 	CodeRoutingInfoAnswer                  = 8388622
-// 	CodeRIA                                = 8388622
-// 	CodeAAMobileNodeRequest                = 260
-// 	CodeAMR                                = 260
-// 	CodeAAMobileNodeAnswer                 = 260
-// 	CodeAMA                                = 260
-// 	CodeHomeAgentMIPRequest                = 262
-// 	CodeHAR                                = 262
-// 	CodeHomeAgentMIPAnswer                 = 262
-// 	CodeHAA                                = 262
-// )
-
 // Message represents a single Diameter message
 type Message struct {
 	Version    uint8
@@ -191,23 +31,9 @@ type Message struct {
 	Avps       []*AVP
 }
 
-//type MessageAttributes struct {
-// 	msgName          string
-// 	msgAbbrv         string
-// 	msgCode          Uint24
-// 	msgIsRequest     bool
-// 	msgMandatoryAvps []*AVPAttribute
-//}
-
-//
-// func NewMessageAttribute(name string, abbrv string, code Uint24,
-// 	is_request bool, mandatoryAvps []*AVPAttribute) *MessageAttributes {
-// 	return &MessageAttributes{name, abbrv, code, is_request, mandatoryAvps}
-// }
-
-// FindAVPByCode returns the first instance of the identified AVP associated
+// FindFirstAVPByCode returns the first instance of the identified AVP associated
 // with the current Message, or nil if the Message has no instances of the AVP
-func (m *Message) FindAVPByCode(code Uint24) *AVP {
+func (m *Message) FindFirstAVPByCode(code Uint24) *AVP {
 	for _, avp := range m.Avps {
 		if avp.Code == uint32(code) {
 			return avp
@@ -379,90 +205,66 @@ func (m *Message) Equal(c *Message) bool {
 	return true
 }
 
-// // MessageIsCER returns true if m is a Capabilities Exchange Request; false otherwise
-// func MessageIsCER(m *Message) bool {
-// 	return m.IsRequest() && m.AppID == 0 && m.Code == 257
-// }
-//
-// // MessageIsCEA returns true if m is a Capabilities Exchange Answer; false otherwise
-// func MessageIsCEA(m *Message) bool {
-// 	return !m.IsRequest() && m.AppID == 0 && m.Code == 257
-// }
-//
-// // MessageIsDWR returns true if m is a Device Watchdog Request; false otherwise
-// func MessageIsDWR(m *Message) bool {
-// 	return m.IsRequest() && m.AppID == 0 && m.Code == 280
-// }
-//
-// // MessageIsDWA returns true if m is a Device Watchdog Answer; false otherwise
-// func MessageIsDWA(m *Message) bool {
-// 	return !m.IsRequest() && m.AppID == 0 && m.Code == 280
-// }
-//
-// // MessageIsDPR returns true if m is a Disconnect Peer Request; false otherwise
-// func MessageIsDPR(m *Message) bool {
-// 	return m.IsRequest() && m.AppID == 0 && m.Code == 282
-// }
-//
-// // MessageIsDPA returns true if m is a Disconnect Peer Answer; false otherwise
-// func MessageIsDPA(m *Message) bool {
-// 	return !m.IsRequest() && m.AppID == 0 && m.Code == 282
-// }
+const (
+	streamReaderBaseBufferSizeInBytes int = 16384
+)
 
 // MessageStreamReader simplifies the reading of an octet stream which must be
 // converted to one or more diameter.Message objects.  Generally, a new
-// MessageStreamReader is created, then ReceiveBytes is repeatedly called on
-// an input stream (which must be in network byte order).  This method will
-// return diameter.Message objects as they can be extracted, and return any
-// remaining bytes not consumed by produced messages
+// MessageStreamReader is created, then ReceiveBytes() is repeatedly called on
+// an input stream (which must be in network byte order) as bytes arrive.
+// This method will return diameter.Message objects as they can be extracted, and
+// store any bytes that are left over after message conversion
 type MessageStreamReader struct {
-	incomingBuffer *[]byte
+	incomingBuffer []byte
 }
 
 // NewMessageStreamReader creates a new MessageStreamReader object
 func NewMessageStreamReader() *MessageStreamReader {
-	return new(MessageStreamReader)
+	return &MessageStreamReader{
+		incomingBuffer: make([]byte, 0, streamReaderBaseBufferSizeInBytes),
+	}
 }
 
 // ReceiveBytes returns one or more diameter.Message objects read from the incoming
 // byte stream.  Return nil if no Message is yet found.  Return error on malformed
 // byte stream.  If an error is returned, subsequent calls are no longer reliable.
 func (reader *MessageStreamReader) ReceiveBytes(incoming []byte) ([]*Message, error) {
-	mlist := list.New()
+	reader.incomingBuffer = append(reader.incomingBuffer, incoming...)
+	incomingBytesLeftToProcess := reader.incomingBuffer
 
-	// XXX: does it make sense to shrink the self.incoming_buffer after a complete message is found
-	//      if the buffer exceeds a specific size?  There's a tradeoff here: on the one hand, if
-	//      a really big message arrives, then the large chunk of memory is allocated (up to 2**24-1 bytes).
-	//      If all other messages are much smaller (say, <= 4k), then that allocated memory is hanging
-	//      around for no value.  On the other hand, if really large messages periodically arrive, then
-	//      there is high CPU overhead to repeatedly allocating and deallocating the memory chunk.
+	setOfExtractedMessages := make([]*Message, 0, 8)
+
+	var nextMessageInStream *Message
+	var err error
 	for {
-		var m *Message
-		var err error
-		m, incoming, err = reader.iterateMessageStream(incoming)
+		nextMessageInStream, incomingBytesLeftToProcess, err = reader.extractNextMessageIfThereIsOne(incomingBytesLeftToProcess)
 
 		if err != nil {
 			return nil, err
-		} else if m != nil {
-			mlist.PushBack(m)
+		} else if nextMessageInStream != nil {
+			setOfExtractedMessages = append(setOfExtractedMessages, nextMessageInStream)
 		} else {
-			m := make([]*Message, mlist.Len())
-			i := 0
-			for e := mlist.Front(); e != nil; e = e.Next() {
-				m[i] = e.Value.(*Message)
-				i++
+			if len(incomingBytesLeftToProcess) != len(reader.incomingBuffer) {
+				if len(incomingBytesLeftToProcess) < streamReaderBaseBufferSizeInBytes {
+					reader.incomingBuffer = make([]byte, 0, streamReaderBaseBufferSizeInBytes)
+				} else {
+					reader.incomingBuffer = make([]byte, 0, len(incomingBytesLeftToProcess)+streamReaderBaseBufferSizeInBytes)
+				}
+				reader.incomingBuffer = append(reader.incomingBuffer, incomingBytesLeftToProcess...)
 			}
-			return m, nil
+
+			return setOfExtractedMessages, nil
 		}
 	}
 }
 
-// Iterate through an incoming stream and attempt to extract a Message, if there are enough
+// Read a stream buffer and attempt to extract a Message, if there are enough
 // bytes in the stream.  If not, return (nil, incoming, nil).  If the stream is malformed for
 // a message, return (nil, incoming, error). If there is at least enough bytes for a message
-// and the stream is well-formed, return (m, remainder, nil), where m is a Message and
+// and the stream is well-formed, return (m, leftOverBytes, nil), where m is a Message and
 // remainder is a slice of incoming, starting one byte after the extracted message.
-func (reader MessageStreamReader) iterateMessageStream(incoming []byte) (*Message, []byte, error) {
+func (reader MessageStreamReader) extractNextMessageIfThereIsOne(incoming []byte) (*Message, []byte, error) {
 	if len(incoming) == 0 {
 		return nil, incoming, nil
 	}
