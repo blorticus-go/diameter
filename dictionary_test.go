@@ -69,7 +69,7 @@ MessageTypes:
 	if err != nil {
 		t.Errorf("Error on FromYamlString(): %s", err)
 	} else {
-	  avp, err := dictionary.AvpErrorable("Auth-Application-Id", uint32(10))
+		avp, err := dictionary.AvpErrorable("Auth-Application-Id", uint32(10))
 
 		if err != nil {
 			t.Errorf("Error on dictionary.AVPErrorable('Auth-Application-Id', 10): %s", err)
@@ -78,6 +78,144 @@ MessageTypes:
 				t.Errorf("avp code should be 258, is %d", avp.Code)
 			}
 		}
+	}
+}
+
+func TestBasicYamlTypeErrors(t *testing.T) {
+	// start by testing that a base definition is otherwise legal
+	ValidDefinition := `---
+AvpTypes:
+    - Name: "Auth-Application-Id"
+      Code: 258
+      Type: "Unsigned32"
+    - Name: "Auth-Request-Type"
+      Code: 274
+      Type: "Enumerated"
+      Enumeration:
+        - Name: "AUTHENTICATE_ONLY"
+          Value: 1
+        - Name: "AUTHORIZE_ONLY"
+          Value: 2
+        - Name: "AUTHORIZE_AUTHENTICATE"
+          Value: 3
+    - Name: "Acct-Session-Id"
+      Code: 44
+      Type: "OctetString"
+`
+
+	dictionary, err := FromYamlString(ValidDefinition)
+
+	if err != nil {
+		t.Errorf("On test of base ValidDefinition, expected no error, but got error = (%s)", err)
+	} else if dictionary == nil {
+		t.Errorf("On test of base ValidDefinition, expected non nil dictionary, but it is nil")
+	}
+
+	// Now run permutations of that ValidDefinition
+	InvalidDefinition := `---
+AvpTypes:
+    - Name: "Auth-Application-Id"
+      Code: 258
+      Type: "Unsigned34"
+    - Name: "Auth-Request-Type"
+      Code: 274
+      Type: "Enumerated"
+      Enumeration:
+        - Name: "AUTHENTICATE_ONLY"
+          Value: 1
+        - Name: "AUTHORIZE_ONLY"
+          Value: 2
+        - Name: "AUTHORIZE_AUTHENTICATE"
+          Value: 3
+    - Name: "Acct-Session-Id"
+      Code: 44
+      Type: "OctetString"
+`
+
+	dictionary, err = FromYamlString(InvalidDefinition)
+
+	if err == nil {
+		t.Errorf("Expected error when AvpType.Type = Unsigned32 on first AVP, but got no error")
+	}
+
+	InvalidDefinition = `---
+AvpTypes:
+    - Name: "Auth-Application-Id"
+      Code: 258
+      Type: "Unsigned32"
+    - Name: "Auth-Request-Type"
+      Code: -1
+      Type: "Enumerated"
+      Enumeration:
+        - Name: "AUTHENTICATE_ONLY"
+          Value: 1
+        - Name: "AUTHORIZE_ONLY"
+          Value: 2
+        - Name: "AUTHORIZE_AUTHENTICATE"
+          Value: 3
+    - Name: "Acct-Session-Id"
+      Code: 44
+      Type: "OctetString"
+`
+
+	dictionary, err = FromYamlString(InvalidDefinition)
+
+	if err == nil {
+		t.Errorf("Expected error when AvpType.Code = -1 on second AVP, but got no error")
+	}
+
+	InvalidDefinition = `---
+AvpTypes:
+    - Name: "Auth-Application-Id"
+      Code: 258
+      Type: "Unsigned32"
+    - Name: "Auth-Request-Type"
+      Code: 274
+      Type: "Enumerated"
+      Enumeration:
+        - Name: "AUTHENTICATE_ONLY"
+          Value: "foo"
+        - Name: "AUTHORIZE_ONLY"
+          Value: 2
+        - Name: "AUTHORIZE_AUTHENTICATE"
+          Value: 3
+    - Name: "Acct-Session-Id"
+      Code: 44
+      Type: "OctetString"
+`
+
+	dictionary, err = FromYamlString(InvalidDefinition)
+
+	if err == nil {
+		t.Errorf("Expected error when Enumveration.Value is a string on second AVP, but got no error")
+	}
+}
+
+func TestInvalidYamlCode(t *testing.T) {
+	InvalidDefintion := `---
+AvpTypes:
+    - Name: "Auth-Application-Id"
+      Code: 258
+      Type: "Unsigned32"
+    - Name: "Auth-Request-Type"
+      Code: -1
+      Type: "Enumerated"
+      Enumeration:
+        - Name: "AUTHENTICATE_ONLY"
+          Value: 1
+        - Name: "AUTHORIZE_ONLY"
+          Value: 2
+        - Name: "AUTHORIZE_AUTHENTICATE"
+          Value: 3
+    - Name: "Acct-Session-Id"
+      Code: 44
+      Type: "OctetString"
+`
+
+	_, err := FromYamlString(InvalidDefintion)
+
+	if err == nil {
+		t.Errorf("Expected error when AvpType.Type = Unsigned32, but no error")
 	}
 }
 
