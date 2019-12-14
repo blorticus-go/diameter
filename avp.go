@@ -9,10 +9,11 @@ import (
 )
 
 const (
-	avpProtectedFlag      = 0x20
-	avpMandatoryFlag      = 0x40
-	avpFlagVendorSpecific = 0x80
-	avpHeaderLength       = 8
+	avpProtectedFlag                 = 0x20
+	avpMandatoryFlag                 = 0x40
+	avpFlagVendorSpecific            = 0x80
+	nonVendorSpecificAvpHeaderLength = 8
+	vendorSpecificAvpHeaderLength    = 12
 )
 
 // these are the leading type qualifier values in an AVP value of Address type
@@ -85,15 +86,15 @@ func NewAVP(code uint32, VendorID uint32, mandatory bool, data []byte) *AVP {
 	avp.Code = code
 	avp.VendorID = VendorID
 	if VendorID != 0 {
+		avp.Length = vendorSpecificAvpHeaderLength
 		avp.VendorSpecific = true
 	} else {
+		avp.Length = nonVendorSpecificAvpHeaderLength
 		avp.VendorSpecific = false
 	}
 	avp.Mandatory = mandatory
 	avp.Protected = false
 	avp.Data = data
-
-	avp.Length = avpHeaderLength
 
 	avp.Length += len(data)
 	avp.updatePaddedLength()
@@ -253,26 +254,22 @@ func NewTypedAVPErrorable(code uint32, vendorID uint32, mandatory bool, avpType 
 		}
 
 	case DiamIdent:
-		v, isByteSlice := value.([]byte)
+		v, isByteSlice := value.(string)
 
 		if !isByteSlice {
-			return nil, fmt.Errorf("AVP type should []byte, but is not")
+			return nil, fmt.Errorf("DiamIdent AVP type should string, but is not")
 		}
 
-		if len(v) != 4 {
-			return nil, fmt.Errorf("AVP byte length must be 4, but is (%d)", len(v))
-		}
-
-		data = v
+		data = []byte(v)
 
 	case DiamURI:
-		v, isByteSlice := value.([]byte)
+		v, isByteSlice := value.(string)
 
 		if !isByteSlice {
-			return nil, fmt.Errorf("AVP type should []byte, but is not")
+			return nil, fmt.Errorf("DiamURI AVP type should string, but is not")
 		}
 
-		data = v
+		data = []byte(v)
 
 	case Grouped:
 		v, isAvpSlice := value.([]*AVP)
@@ -309,12 +306,16 @@ func NewTypedAVPErrorable(code uint32, vendorID uint32, mandatory bool, avpType 
 	}
 
 	isVendorSpecific := false
+	avpLength := nonVendorSpecificAvpHeaderLength
 	if vendorID != 0 {
 		isVendorSpecific = true
+		avpLength = vendorSpecificAvpHeaderLength
 	}
 
-	paddedLength := len(data)
-	carry := len(data) % 4
+	avpLength += len(data)
+
+	paddedLength := avpLength
+	carry := avpLength % 4
 	if carry > 0 {
 		paddedLength += (4 - carry)
 	}
@@ -326,7 +327,7 @@ func NewTypedAVPErrorable(code uint32, vendorID uint32, mandatory bool, avpType 
 		Mandatory:      mandatory,
 		Protected:      false,
 		Data:           data,
-		Length:         len(data),
+		Length:         avpLength,
 		PaddedLength:   paddedLength,
 		ExtendedAttributes: &AVPExtendedAttributes{
 			DataType:   avpType,
@@ -493,6 +494,16 @@ func (avp *AVP) Equal(a *AVP) bool {
 		return false
 	}
 
+	if len(avp.Data) != len(a.Data) {
+		return false
+	}
+
+	for i, leftAvpByteValue := range avp.Data {
+		if leftAvpByteValue != a.Data[i] {
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -526,14 +537,14 @@ func DecodeAVP(input []byte) (*AVP, error) {
 	}
 
 	//	dataLength := avp.Length - avpHeaderLength
-	headerLength := avpHeaderLength
+	headerLength := nonVendorSpecificAvpHeaderLength
 
 	if avp.VendorSpecific == true {
 		err = binary.Read(buf, binary.BigEndian, &avp.VendorID)
 		if err != nil {
 			return nil, fmt.Errorf("stream read failure: %s", err)
 		}
-		headerLength += 4
+		headerLength = vendorSpecificAvpHeaderLength
 	}
 
 	//err = avp.readRaw(buf)
