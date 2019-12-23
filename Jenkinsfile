@@ -8,6 +8,7 @@ pipeline {
   stages {
     stage('Build') {
       steps {
+        sh 'go get gopkg.in/yaml.v2'
         sh 'go build'
       }
     }
