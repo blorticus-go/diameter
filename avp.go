@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"time"
 )
 
 const (
@@ -57,6 +58,8 @@ const (
 	// IPFilterRule indicates AVP type for IP Filter Rule
 	IPFilterRule
 )
+
+var diameterBaseTime time.Time = time.Date(1900, time.January, 1, 0, 0, 0, 0, time.UTC)
 
 // AVPExtendedAttributes includes extended AVP attributes that can be
 // provided by, for example, a dictionary.  It includes a human-friendly name
@@ -216,17 +219,41 @@ func NewTypedAVPErrorable(code uint32, vendorID uint32, mandatory bool, avpType 
 		data = buf.Bytes()
 
 	case Time:
-		v, isByteSlice := value.([]byte)
+		switch value.(type) {
+		case []byte:
+			v := value.([]byte)
 
-		if !isByteSlice {
-			return nil, fmt.Errorf("AVP type should []byte, but is not")
+			if len(v) != 4 {
+				return nil, fmt.Errorf("AVP byte length must be 4, but is (%d)", len(v))
+			}
+
+			data = v
+
+		case uint32:
+			data = make([]byte, 4)
+			binary.BigEndian.PutUint32(data, value.(uint32))
+
+		case time.Time:
+			v := value.(time.Time)
+			return NewTypedAVPErrorable(code, vendorID, mandatory, avpType, &v)
+
+		case *time.Time:
+			durationSinceDiameterBaseTime := value.(*time.Time).Sub(diameterBaseTime) / time.Second
+
+			if durationSinceDiameterBaseTime < 0 {
+				return nil, fmt.Errorf("Provided Time is earlier than the Diameter Epoch (Jan 01, 1900 UTC)")
+			}
+
+			if durationSinceDiameterBaseTime > 4294967295 {
+				return nil, fmt.Errorf("Provided Time is later than Diameter time can represent")
+			}
+
+			data = make([]byte, 4)
+			binary.BigEndian.PutUint32(data, uint32(durationSinceDiameterBaseTime))
+
+		default:
+			return nil, fmt.Errorf("AVP of Time type must be uint32, time.Time or *time.Time")
 		}
-
-		if len(v) != 4 {
-			return nil, fmt.Errorf("AVP byte length must be 4, but is (%d)", len(v))
-		}
-
-		data = v
 
 	case Address:
 		v, isIP := value.(net.IP)
@@ -235,10 +262,16 @@ func NewTypedAVPErrorable(code uint32, vendorID uint32, mandatory bool, avpType 
 			w, isIPAddr := value.(net.IPAddr)
 
 			if !isIPAddr {
-				return nil, fmt.Errorf("AVP type should be net.IP or net.IPAddr, but is neither")
-			}
+				w, isIPAddrPtr := value.(*net.IPAddr)
 
-			v = w.IP
+				if !isIPAddrPtr {
+					return nil, fmt.Errorf("AVP type should be net.IP, net.IPAddr or *net.IPAddr, but is none of those")
+				}
+
+				v = w.IP
+			} else {
+				v = w.IP
+			}
 		}
 
 		if v.To4() == nil {
@@ -254,9 +287,9 @@ func NewTypedAVPErrorable(code uint32, vendorID uint32, mandatory bool, avpType 
 		}
 
 	case DiamIdent:
-		v, isByteSlice := value.(string)
+		v, isString := value.(string)
 
-		if !isByteSlice {
+		if !isString {
 			return nil, fmt.Errorf("DiamIdent AVP type should string, but is not")
 		}
 
