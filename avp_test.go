@@ -11,6 +11,16 @@ func dumpBytes(b []byte) {
 	fmt.Printf("PRINTF data [%x]\n", b)
 }
 
+type simpleAvpDecodeTestAttributes struct {
+	encodedBytes       []byte
+	length             int
+	code               uint32
+	vendorID           uint32
+	mandatoryFlagValue bool
+	protectedFlagValue bool
+	dataAsBytes        []byte
+}
+
 func simpleTest(t *testing.T, encoded []byte, testname string, length int, code uint32, vendorID uint32, mandatory bool, protected bool, data []byte) {
 	avp, err := DecodeAVP(encoded)
 
@@ -58,6 +68,56 @@ func simpleTest(t *testing.T, encoded []byte, testname string, length int, code 
 	if len(reencode) != len(encoded) {
 		t.Errorf("Test = %s, avp.Encode() length is (%d) should be (%d)", testname, len(reencode), len(encoded))
 	}
+}
+
+func testAvpDecode(expected simpleAvpDecodeTestAttributes) error {
+	avp, err := DecodeAVP(expected.encodedBytes)
+
+	if err != nil {
+		return fmt.Errorf("should not return error but does: (%s)", err.Error())
+	}
+
+	if avp.Length != expected.length {
+		return fmt.Errorf("avp.Length should be (%d), is (%d)", expected.length, avp.Length)
+	}
+
+	if avp.Code != expected.code {
+		return fmt.Errorf("avp.Code should be (%d), is (%d)", expected.code, avp.Code)
+	}
+
+	if avp.VendorID != expected.vendorID {
+		return fmt.Errorf("avp.VendorID should be (%d), is (%d)", expected.vendorID, avp.VendorID)
+	}
+
+	if avp.Mandatory != expected.mandatoryFlagValue {
+		return fmt.Errorf("avp.Mandatory should be (%t), is (%t)", expected.mandatoryFlagValue, avp.Mandatory)
+	}
+
+	if avp.Protected != expected.protectedFlagValue {
+		return fmt.Errorf("avp.Protected should be (%t), is (%t)", expected.protectedFlagValue, avp.Protected)
+	}
+
+	if expected.vendorID == 0 && avp.VendorSpecific || expected.vendorID != 0 && !avp.VendorSpecific {
+		return fmt.Errorf("avp.vendorID is (%d) but avp.VendorSpecific is (%t)", avp.VendorID, avp.VendorSpecific)
+	}
+
+	if len(avp.Data) != len(expected.dataAsBytes) {
+		return fmt.Errorf("encoded avp.Data length (%d) != anticipated data length (%d)", len(avp.Data), len(expected.dataAsBytes))
+	}
+
+	for i := 0; i < len(expected.dataAsBytes); i++ {
+		if avp.Data[i] != expected.dataAsBytes[i] {
+			return fmt.Errorf("byte (%d) of encoded data does not match anticipated data", i)
+		}
+	}
+
+	reEncodedAvp := avp.Encode()
+
+	if len(reEncodedAvp) != len(expected.encodedBytes) {
+		return fmt.Errorf("avp.Encode() length is (%d) should be (%d)", len(reEncodedAvp), len(expected.encodedBytes))
+	}
+
+	return nil
 }
 
 func compareAvpValues(avp *AVP, code uint32, vendorID uint32, mandatory bool, data []byte, length int, paddedLength int) error {
@@ -171,18 +231,44 @@ func TestULAFlags(t *testing.T) {
 	simpleTest(t, encoded, "Test:ULA-Flags:33", 16, 1406, 10415, false, false, []byte{0x00, 0x00, 0x00, 0x21})
 }
 
-func TestHostIpAddress(t *testing.T) {
-	encoded := []byte{
-		0x00, 0x00, 0x01, 0x01, 0x40, 0x00, 0x00, 0x0e, 0x00, 0x01, 0x0a, 0x14, 0x1e, 0x01, 0x00, 0x00,
+func TestGGSNAddress(t *testing.T) {
+	err := testAvpDecode(simpleAvpDecodeTestAttributes{
+		encodedBytes: []byte{
+			0x00, 0x00, 0x03, 0x4f,
+			0x80, 0x00, 0x00, 0x12,
+			0x00, 0x00, 0x27, 0xa1,
+			0x00, 0x01, 0x0a, 0x14, 0x1e, 0x01, 0x00, 0x00,
+		},
+		vendorID:           10145,
+		code:               847,
+		mandatoryFlagValue: false,
+		protectedFlagValue: false,
+		length:             18,
+		dataAsBytes:        []byte{0x00, 0x01, 0x0a, 0x14, 0x1e, 0x01},
+	})
+
+	if err != nil {
+		t.Errorf("GGSNAddress with IPv4 address (10.20.31.1) error on decode test: %s", err)
 	}
 
-	simpleTest(t, encoded, "Test:HostIpAddress:10.20.30.1", 14, 257, 0, true, false, []byte{0x00, 0x01, 0x0a, 0x14, 0x1e, 0x01})
+	err = testAvpDecode(simpleAvpDecodeTestAttributes{
+		encodedBytes: []byte{
+			0x00, 0x00, 0x03, 0x4f,
+			0xc0, 0x00, 0x00, 0x1c,
+			0x00, 0x00, 0x27, 0xa1,
+			0x00, 0x01, 0x20, 0x01, 0x0d, 0xb8, 0xab, 0xcd, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x12, 0x34,
+		},
+		vendorID:           10145,
+		code:               847,
+		mandatoryFlagValue: true,
+		protectedFlagValue: false,
+		length:             28,
+		dataAsBytes:        []byte{0x00, 0x01, 0x20, 0x01, 0x0d, 0xb8, 0xab, 0xcd, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x12, 0x34},
+	})
 
-	encoded = []byte{
-		0x00, 0x00, 0x01, 0x01, 0x40, 0x00, 0x00, 0x18, 0x00, 0x01, 0x20, 0x01, 0x0d, 0xb8, 0xab, 0xcd, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x12, 0x34,
+	if err != nil {
+		t.Errorf("GGSNAddress with IPv6 address (2001:db8:abcd:1::1234) error on decode test: %s", err)
 	}
-
-	simpleTest(t, encoded, "Test:HostIpAddress:2001:db8:abcd:1::1234", 24, 257, 0, true, false, []byte{0x00, 0x01, 0x20, 0x01, 0x0d, 0xb8, 0xab, 0xcd, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x12, 0x34})
 }
 
 func TestTypedAvpUnsigned32(t *testing.T) {

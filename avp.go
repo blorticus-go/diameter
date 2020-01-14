@@ -389,15 +389,15 @@ func (avp *AVP) MakeProtected() *AVP {
 	return avp
 }
 
-func appendUint16(avp *bytes.Buffer, dataUint16 uint16) {
-	data := make([]byte, 2)
-	binary.BigEndian.PutUint16(data, dataUint16)
-	err := binary.Write(avp, binary.LittleEndian, data)
-	if err != nil {
-		// XXX: errors should be propagated
-		fmt.Println("binary.Write failed:", err)
-	}
-}
+// func appendUint16(avp *bytes.Buffer, dataUint16 uint16) {
+// 	data := make([]byte, 2)
+// 	binary.BigEndian.PutUint16(data, dataUint16)
+// 	err := binary.Write(avp, binary.LittleEndian, data)
+// 	if err != nil {
+// 		// XXX: errors should be propagated
+// 		fmt.Println("binary.Write failed:", err)
+// 	}
+// }
 
 func appendUint32(avp *bytes.Buffer, dataUint32 uint32) {
 	data := make([]byte, 4)
