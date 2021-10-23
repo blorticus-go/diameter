@@ -1,8 +1,55 @@
-package diameter
+package diameter_test
 
 import (
+	"fmt"
 	"testing"
+
+	diameter "github.com/blorticus/go-diameter"
 )
+
+type dictionaryMessageTestCase struct {
+	nameProvidedToDictionaryLookup string
+	expectAnError                  bool
+	expectedMessageCode            diameter.Uint24
+	expectedMessageAppID           uint32
+	expectMessageToBeRequest       bool
+}
+
+func (testCase *dictionaryMessageTestCase) AttemptUsingDictionary(dictionary *diameter.Dictionary) error {
+	m, err := dictionary.MessageErrorable(testCase.nameProvidedToDictionaryLookup, diameter.MessageFlags{}, []*diameter.AVP{}, []*diameter.AVP{})
+	if err != nil {
+		if !testCase.expectAnError {
+			return fmt.Errorf("did not expect error, got error = (%s)", err.Error())
+		}
+	} else {
+		if testCase.expectAnError {
+			return fmt.Errorf("expected error, got none")
+		}
+	}
+
+	if !testCase.expectAnError {
+		if m == nil {
+			return fmt.Errorf("expected message, got nil")
+		}
+		if m.AppID != testCase.expectedMessageAppID {
+			return fmt.Errorf("expected AppId = (%d), got = (%d)", testCase.expectedMessageAppID, m.AppID)
+		}
+		if m.Code != testCase.expectedMessageCode {
+			return fmt.Errorf("expected Code = (%d), got = (%d)", testCase.expectedMessageCode, m.Code)
+		}
+		if testCase.expectMessageToBeRequest {
+			if !m.IsRequest() {
+				return fmt.Errorf("expect message to be a request, but it is not")
+			}
+		} else {
+			if m.IsRequest() {
+				return fmt.Errorf("expect message to be an answer, but it is not")
+			}
+		}
+	}
+
+	return nil
+}
 
 func TestBaseProtocolDefinitionFromString(t *testing.T) {
 	properBaseDiameterApplictionYamlString := `---
@@ -62,13 +109,69 @@ MessageTypes:
           Request: "DPR"
           Answer: "DPA"
       Code: 282
+    - Basename: "Update-Location"
+      Abbreviations:
+          Request: "ULR"
+          Answer: "ULA"
+      Code: 316
+      Application-Id: 16777251
+    - Basename: "Cancel-Location"
+      Abbreviations:
+          Request: "CLR"
+          Answer: "CLA"
+      Code: 317
+      Application-Id: 16777251
 `
+	messageTestCases := []*dictionaryMessageTestCase{
+		{
+			nameProvidedToDictionaryLookup: "Accouting-Request",
+			expectedMessageCode:            271,
+			expectedMessageAppID:           0,
+			expectMessageToBeRequest:       true,
+		},
+		{
+			nameProvidedToDictionaryLookup: "Accouting-Answer",
+			expectedMessageCode:            271,
+			expectedMessageAppID:           0,
+			expectMessageToBeRequest:       false,
+		},
+		{
+			nameProvidedToDictionaryLookup: "CER",
+			expectedMessageCode:            257,
+			expectedMessageAppID:           0,
+			expectMessageToBeRequest:       true,
+		},
+		{
+			nameProvidedToDictionaryLookup: "CEA",
+			expectedMessageCode:            257,
+			expectedMessageAppID:           0,
+			expectMessageToBeRequest:       false,
+		},
+		{
+			nameProvidedToDictionaryLookup: "Update-Location-Request",
+			expectedMessageCode:            316,
+			expectedMessageAppID:           16777251,
+			expectMessageToBeRequest:       true,
+		},
+		{
+			nameProvidedToDictionaryLookup: "Update-Location-Answer",
+			expectedMessageCode:            316,
+			expectedMessageAppID:           16777251,
+			expectMessageToBeRequest:       false,
+		},
+	}
 
-	dictionary, err := FromYamlString(properBaseDiameterApplictionYamlString)
+	dictionary, err := diameter.DictionaryFromYamlString(properBaseDiameterApplictionYamlString)
 
 	if err != nil {
 		t.Errorf("Error on FromYamlString(): %s", err)
 	} else {
+		for indexForTestCase, testCase := range messageTestCases {
+			if err := testCase.AttemptUsingDictionary(dictionary); err != nil {
+				t.Errorf("(TestDictionaryValidValues) (test number %d) %s", indexForTestCase+1, err.Error())
+			}
+		}
+
 		avp, err := dictionary.AvpErrorable("Auth-Application-Id", uint32(10))
 
 		if err != nil {
@@ -103,7 +206,7 @@ AvpTypes:
       Type: "OctetString"
 `
 
-	dictionary, err := FromYamlString(ValidDefinition)
+	dictionary, err := diameter.DictionaryFromYamlString(ValidDefinition)
 
 	if err != nil {
 		t.Errorf("On test of base ValidDefinition, expected no error, but got error = (%s)", err)
@@ -132,7 +235,7 @@ AvpTypes:
       Type: "OctetString"
 `
 
-	dictionary, err = FromYamlString(InvalidDefinition)
+	dictionary, err = diameter.DictionaryFromYamlString(InvalidDefinition)
 
 	if err == nil {
 		t.Errorf("Expected error when AvpType.Type = Unsigned32 on first AVP, but got no error")
@@ -158,7 +261,7 @@ AvpTypes:
       Type: "OctetString"
 `
 
-	dictionary, err = FromYamlString(InvalidDefinition)
+	dictionary, err = diameter.DictionaryFromYamlString(InvalidDefinition)
 
 	if err == nil {
 		t.Errorf("Expected error when AvpType.Code = -1 on second AVP, but got no error")
@@ -184,7 +287,7 @@ AvpTypes:
       Type: "OctetString"
 `
 
-	dictionary, err = FromYamlString(InvalidDefinition)
+	dictionary, err = diameter.DictionaryFromYamlString(InvalidDefinition)
 
 	if err == nil {
 		t.Errorf("Expected error when Enumveration.Value is a string on second AVP, but got no error")
@@ -212,7 +315,7 @@ AvpTypes:
       Type: "OctetString"
 `
 
-	_, err := FromYamlString(InvalidDefintion)
+	_, err := diameter.DictionaryFromYamlString(InvalidDefintion)
 
 	if err == nil {
 		t.Errorf("Expected error when AvpType.Type = Unsigned32, but no error")

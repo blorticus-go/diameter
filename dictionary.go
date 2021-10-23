@@ -31,6 +31,7 @@ type DictionaryYamlMessageAbbreviation struct {
 type DictionaryYamlMessageType struct {
 	Basename      string                            `yaml:"Basename"`
 	Code          uint32                            `yaml:"Code"`
+	ApplicationID uint32                            `yaml:"Application-Id"`
 	Abbreviations DictionaryYamlMessageAbbreviation `yaml:"Abbreviations"`
 }
 
@@ -43,6 +44,7 @@ type DictionaryYaml struct {
 type dictionaryMessageDescriptor struct {
 	name          string
 	code          uint32
+	appID         uint32
 	isRequestType bool
 }
 
@@ -129,6 +131,7 @@ func fromYamlForm(yamlForm *DictionaryYaml) (*Dictionary, error) {
 		messageDescriptor := &dictionaryMessageDescriptor{
 			code:          yamlMessageType.Code,
 			name:          yamlMessageType.Basename + "-Request",
+			appID:         yamlMessageType.ApplicationID,
 			isRequestType: true,
 		}
 
@@ -139,7 +142,8 @@ func fromYamlForm(yamlForm *DictionaryYaml) (*Dictionary, error) {
 		messageDescriptor = &dictionaryMessageDescriptor{
 			code:          yamlMessageType.Code,
 			name:          yamlMessageType.Basename + "-Answer",
-			isRequestType: true,
+			appID:         yamlMessageType.ApplicationID,
+			isRequestType: false,
 		}
 
 		dictionary.messageDescriptorByNameOrAbbreviation[yamlMessageType.Basename+"-Answer"] = messageDescriptor
@@ -150,13 +154,13 @@ func fromYamlForm(yamlForm *DictionaryYaml) (*Dictionary, error) {
 	return &dictionary, nil
 }
 
-// FromYamlFile processes a file that should be a YAML formatted Diameter dictionary
-func FromYamlFile(filepath string) (*Dictionary, error) {
+// DictionaryFromYamlFile processes a file that should be a YAML formatted Diameter dictionary
+func DictionaryFromYamlFile(filepath string) (*Dictionary, error) {
 	return nil, nil
 }
 
-// FromYamlString reads a string containing a Diameter dictionary in YAML format
-func FromYamlString(yamlString string) (*Dictionary, error) {
+// DictionaryFromYamlString reads a string containing a Diameter dictionary in YAML format
+func DictionaryFromYamlString(yamlString string) (*Dictionary, error) {
 	dictionaryYaml := new(DictionaryYaml)
 	err := yaml.Unmarshal([]byte(yamlString), &dictionaryYaml)
 
@@ -213,12 +217,37 @@ type MessageFlags struct {
 // match the AVP order presented in the dictionary for the message type, and the mandatory
 // flag will be changed to match the definition for the message type.  An error, however, is
 // not raised if a mandatory flag is not present.
-func (dictionary *Dictionary) MessageErrorable(name string, flags MessageFlags, avps []*AVP) (*Message, error) {
-	return nil, nil
+func (dictionary *Dictionary) MessageErrorable(name string, flags MessageFlags, mandatoryAVPs []*AVP, additionalAVPs []*AVP) (*Message, error) {
+	messageDescriptor, messageTypeIsDefined := dictionary.messageDescriptorByNameOrAbbreviation[name]
+	if !messageTypeIsDefined {
+		return nil, fmt.Errorf("message of type (%s) is not known", name)
+	}
+
+	flagsEncoded := uint8(0)
+	if flags.PotentialRetransmit {
+		flagsEncoded |= MsgFlagPotentialRetransmit
+	}
+	if flags.Error {
+		flagsEncoded |= MsgFlagError
+	}
+	if flags.Proxiable {
+		flagsEncoded |= MsgFlagProxiable
+	}
+
+	if messageDescriptor.isRequestType {
+		flagsEncoded |= MsgFlagRequest
+	}
+
+	return NewMessage(flagsEncoded, Uint24(messageDescriptor.code), messageDescriptor.appID, 0, 0, mandatoryAVPs, additionalAVPs), nil
 }
 
 // Message is the same as MessageErrorable, except that, if an error occurs, panic() is
 // invoked with the error string
-func (dictionary *Dictionary) Message(name string, flags MessageFlags, avps []*AVP) *Message {
-	return nil
+func (dictionary *Dictionary) Message(name string, flags MessageFlags, mandatoryAVPs []*AVP, additionalAVPs []*AVP) *Message {
+	m, err := dictionary.MessageErrorable(name, flags, mandatoryAVPs, additionalAVPs)
+	if err != nil {
+		panic(err)
+	}
+
+	return m
 }
