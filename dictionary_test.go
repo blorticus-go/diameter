@@ -51,6 +51,38 @@ func (testCase *dictionaryMessageTestCase) AttemptUsingDictionary(dictionary *di
 	return nil
 }
 
+type avpTestCase struct {
+	nameProvidedToDictionaryLookup string
+	avpValue                       interface{}
+	expectAnError                  bool
+	expectedAvpCode                uint32
+	expectedAvpVendorID            uint32
+}
+
+func (testCase *avpTestCase) AttemptUsingDictionary(dictionary *diameter.Dictionary) error {
+	avp, err := dictionary.AVPErrorable(testCase.nameProvidedToDictionaryLookup, testCase.avpValue)
+
+	if testCase.expectAnError {
+		if err != nil {
+			return nil
+		}
+
+		return fmt.Errorf("expected an error, got none")
+	} else if err != nil {
+		return fmt.Errorf("expected no error, got error = (%s)", err.Error())
+	}
+
+	if avp.Code != testCase.expectedAvpCode {
+		return fmt.Errorf("expected code = (%d), got = (%d)", testCase.expectedAvpCode, avp.Code)
+	}
+
+	if avp.VendorID != testCase.expectedAvpVendorID {
+		return fmt.Errorf("expected vendorId = (%d), got = (%d)", testCase.expectedAvpCode, avp.VendorID)
+	}
+
+	return nil
+}
+
 func TestBaseProtocolDefinitionFromString(t *testing.T) {
 	properBaseDiameterApplictionYamlString := `---
 AvpTypes:
@@ -88,6 +120,10 @@ AvpTypes:
     - Name: "Redirect-Host"
       Code: 292
       Type: "DiamURI"
+    - Name: "Globally-Unique-Address"
+      Code: 300
+      Vendor-Id: 13019
+      Type: "Unsigned64"
 MessageTypes:
     - Basename: "Accouting"
       Abbreviations:
@@ -161,24 +197,35 @@ MessageTypes:
 		},
 	}
 
+	avpTestCases := []*avpTestCase{
+		{
+			nameProvidedToDictionaryLookup: "Auth-Application-Id",
+			avpValue:                       uint32(10),
+			expectedAvpCode:                258,
+			expectedAvpVendorID:            0,
+		},
+		{
+			nameProvidedToDictionaryLookup: "Globally-Unique-Address",
+			avpValue:                       uint64(10),
+			expectedAvpCode:                300,
+			expectedAvpVendorID:            13019,
+		},
+	}
+
 	dictionary, err := diameter.DictionaryFromYamlString(properBaseDiameterApplictionYamlString)
 
 	if err != nil {
-		t.Errorf("Error on FromYamlString(): %s", err)
+		t.Errorf("Error on DictionaryFromYamlString(): %s", err)
 	} else {
 		for indexForTestCase, testCase := range messageTestCases {
 			if err := testCase.AttemptUsingDictionary(dictionary); err != nil {
-				t.Errorf("(TestDictionaryValidValues) (test number %d) %s", indexForTestCase+1, err.Error())
+				t.Errorf("(TestDictionaryValidValues) (Message test number %d) %s", indexForTestCase+1, err.Error())
 			}
 		}
 
-		avp, err := dictionary.AvpErrorable("Auth-Application-Id", uint32(10))
-
-		if err != nil {
-			t.Errorf("Error on dictionary.AVPErrorable('Auth-Application-Id', 10): %s", err)
-		} else {
-			if avp.Code != 258 {
-				t.Errorf("avp code should be 258, is %d", avp.Code)
+		for indexForTestCase, testCase := range avpTestCases {
+			if err := testCase.AttemptUsingDictionary(dictionary); err != nil {
+				t.Errorf("(TestDictionaryValidValues) (AVP test number %d) %s", indexForTestCase+1, err.Error())
 			}
 		}
 	}

@@ -2,6 +2,7 @@ package diameter
 
 import (
 	"fmt"
+	"os"
 
 	yaml "gopkg.in/yaml.v2"
 )
@@ -17,7 +18,7 @@ type DictionaryYamlAvpType struct {
 	Name        string                             `yaml:"Name"`
 	Code        uint32                             `yaml:"Code"`
 	Type        string                             `yaml:"Type"`
-	VendorID    uint32                             `yaml:"VendorID"`
+	VendorID    uint32                             `yaml:"Vendor-Id"`
 	Enumeration []DictionaryYamlAvpEnumerationType `yaml:"Enumeration"`
 }
 
@@ -89,7 +90,7 @@ func convertYamlAvpToDictionaryAvpDescriptor(yamlAvp *DictionaryYamlAvpType) (*d
 	avpDescriptor := &dictionaryAvpDescriptor{
 		code:     yamlAvp.Code,
 		name:     yamlAvp.Name,
-		vendorID: 0,
+		vendorID: yamlAvp.VendorID,
 	}
 
 	if avpDataType, typeStringIsRecognized := mapOfYamlAvpTypeStringToAVPDataType[yamlAvp.Type]; typeStringIsRecognized {
@@ -156,7 +157,12 @@ func fromYamlForm(yamlForm *DictionaryYaml) (*Dictionary, error) {
 
 // DictionaryFromYamlFile processes a file that should be a YAML formatted Diameter dictionary
 func DictionaryFromYamlFile(filepath string) (*Dictionary, error) {
-	return nil, nil
+	contentsOfFileAsString, err := os.ReadFile(filepath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file (%s): %s", filepath, err.Error())
+	}
+
+	return DictionaryFromYamlString(string(contentsOfFileAsString))
 }
 
 // DictionaryFromYamlString reads a string containing a Diameter dictionary in YAML format
@@ -178,25 +184,36 @@ func DictionaryFromYamlString(yamlString string) (*Dictionary, error) {
 
 }
 
-// AvpErrorable returns an AVP based on the dictionary definition.  If the name is not in
+// DataTypeForAVPNamed looks up the data type for the specific AVP
+func (dictionary *Dictionary) DataTypeForAVPNamed(name string) (AVPDataType, error) {
+	descriptor, isInMap := dictionary.avpDescriptorByName[name]
+
+	if !isInMap {
+		return TypeOrAvpUnknown, fmt.Errorf("no AVP named (%s) in the dictionary", name)
+	}
+
+	return descriptor.dataType, nil
+}
+
+// AVPErrorable returns an AVP based on the dictionary definition.  If the name is not in
 // the dictionary, or the value type is incorrect based on the dictionary definition,
 // return an error.  This is Errorable because it may throw an error.  It is assumed
 // that this will be the uncommon case, because ordinarily, the value will be known in
 // advance by the application creating it.
-func (dictionary *Dictionary) AvpErrorable(name string, value interface{}) (*AVP, error) {
+func (dictionary *Dictionary) AVPErrorable(name string, value interface{}) (*AVP, error) {
 	descriptor, isInMap := dictionary.avpDescriptorByName[name]
 
 	if !isInMap {
-		return nil, fmt.Errorf("No AVP named (%s) in the dictionary", name)
+		return nil, fmt.Errorf("no AVP named (%s) in the dictionary", name)
 	}
 
 	return NewTypedAVPErrorable(descriptor.code, descriptor.vendorID, false, descriptor.dataType, value)
 }
 
-// AVP is the same as AvpErrorable, except that, if an error occurs, panic() is invoked
+// AVP is the same as AVPErrorable, except that, if an error occurs, panic() is invoked
 // with the error string
 func (dictionary *Dictionary) AVP(name string, value interface{}) *AVP {
-	avp, err := dictionary.AvpErrorable(name, value)
+	avp, err := dictionary.AVPErrorable(name, value)
 
 	if err != nil {
 		panic(err)

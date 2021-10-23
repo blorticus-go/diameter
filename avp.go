@@ -57,6 +57,9 @@ const (
 	Grouped
 	// IPFilterRule indicates AVP type for IP Filter Rule
 	IPFilterRule
+	// TypeOrAvpUnknown is used when a query is made for an unknown AVP or the dictionary
+	// contains an unknown type
+	TypeOrAvpUnknown
 )
 
 var diameterBaseTime time.Time = time.Date(1900, time.January, 1, 0, 0, 0, 0, time.UTC)
@@ -336,6 +339,9 @@ func NewTypedAVPErrorable(code uint32, vendorID uint32, mandatory bool, avpType 
 
 			data = v
 		}
+
+	default:
+		return nil, fmt.Errorf("type not valid for an AVP")
 	}
 
 	isVendorSpecific := false
