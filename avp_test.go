@@ -390,25 +390,25 @@ func TestTypedAvpNetAddr(t *testing.T) {
 	if err := typedAvpComparisonTest(50, 0, Address,
 		// Address can be net.IPAddr or *net.IPAddr (or IP.Addr, but that is tested above)
 		[]goodTypedValueTestValues{
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    *v4NetAddr,
 				expectedValueAsBytes:    []byte{0x00, 0x01, 0xc0, 0xa8, 0x0a, 0x01},
 				expectedAvpLength:       14,
 				expectedAvpPaddedLength: 16,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    *v6NetAddr,
 				expectedValueAsBytes:    []byte{0x00, 0x02, 0xfd, 0x00, 0xab, 0xcd, 0, 0, 0x12, 0x34, 0xaf, 0xff, 0, 0, 0, 0, 0, 0x1},
 				expectedAvpLength:       26,
 				expectedAvpPaddedLength: 28,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    v4NetAddr,
 				expectedValueAsBytes:    []byte{0x00, 0x01, 0xc0, 0xa8, 0x0a, 0x01},
 				expectedAvpLength:       14,
 				expectedAvpPaddedLength: 16,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    v6NetAddr,
 				expectedValueAsBytes:    []byte{0x00, 0x02, 0xfd, 0x00, 0xab, 0xcd, 0, 0, 0x12, 0x34, 0xaf, 0xff, 0, 0, 0, 0, 0, 0x1},
 				expectedAvpLength:       26,
@@ -479,13 +479,13 @@ func TestDiamURI(t *testing.T) {
 func TestUTF8String(t *testing.T) {
 	if err := typedAvpComparisonTest(50, 0, UTF8String,
 		[]goodTypedValueTestValues{
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    "foo",
 				expectedValueAsBytes:    []byte{0x66, 0x6f, 0x6f},
 				expectedAvpLength:       11,
 				expectedAvpPaddedLength: 12,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    []byte{0x66, 0x6f, 0x6f},
 				expectedValueAsBytes:    []byte{0x66, 0x6f, 0x6f},
 				expectedAvpLength:       11,
@@ -493,7 +493,7 @@ func TestUTF8String(t *testing.T) {
 			},
 		},
 		[]badTypedValueTest{
-			badTypedValueTest{
+			{
 				badTypedValueToTest: uint32(0),
 			},
 		}); err != nil {
@@ -504,19 +504,19 @@ func TestUTF8String(t *testing.T) {
 func TestInteger32(t *testing.T) {
 	if err := typedAvpComparisonTest(50, 0, Integer32,
 		[]goodTypedValueTestValues{
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    int32(0),
 				expectedValueAsBytes:    []byte{0x0, 0x0, 0x0, 0x0},
 				expectedAvpLength:       12,
 				expectedAvpPaddedLength: 12,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    int32(-2147483648),
 				expectedValueAsBytes:    []byte{0x80, 0x00, 0x00, 0x00},
 				expectedAvpLength:       12,
 				expectedAvpPaddedLength: 12,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    int32(2147483647),
 				expectedValueAsBytes:    []byte{0x7f, 0xff, 0xff, 0xff},
 				expectedAvpLength:       12,
@@ -524,13 +524,13 @@ func TestInteger32(t *testing.T) {
 			},
 		},
 		[]badTypedValueTest{
-			badTypedValueTest{
+			{
 				badTypedValueToTest: uint32(0),
 			},
-			badTypedValueTest{
+			{
 				badTypedValueToTest: uint32(2130706432),
 			},
-			badTypedValueTest{
+			{
 				badTypedValueToTest: uint32(2147483648),
 			},
 		}); err != nil {
@@ -541,19 +541,19 @@ func TestInteger32(t *testing.T) {
 func TestInteger64(t *testing.T) {
 	if err := typedAvpComparisonTest(50, 0, Integer64,
 		[]goodTypedValueTestValues{
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    int64(0),
 				expectedValueAsBytes:    []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 				expectedAvpLength:       16,
 				expectedAvpPaddedLength: 16,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    int64(-9223372036854775808),
 				expectedValueAsBytes:    []byte{0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
 				expectedAvpLength:       16,
 				expectedAvpPaddedLength: 16,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    int64(9223372036854775807),
 				expectedValueAsBytes:    []byte{0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 				expectedAvpLength:       16,
@@ -561,13 +561,13 @@ func TestInteger64(t *testing.T) {
 			},
 		},
 		[]badTypedValueTest{
-			badTypedValueTest{
+			{
 				badTypedValueToTest: uint32(0),
 			},
-			badTypedValueTest{
+			{
 				badTypedValueToTest: uint64(9223372036854775808),
 			},
-			badTypedValueTest{
+			{
 				badTypedValueToTest: uint64(9223372036854775807),
 			},
 		}); err != nil {
@@ -578,19 +578,19 @@ func TestInteger64(t *testing.T) {
 func TestFloat32(t *testing.T) {
 	if err := typedAvpComparisonTest(50, 0, Float32,
 		[]goodTypedValueTestValues{
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    float32(0),
 				expectedValueAsBytes:    []byte{0x0, 0x0, 0x0, 0x0},
 				expectedAvpLength:       12,
 				expectedAvpPaddedLength: 12,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    float32(0.0),
 				expectedValueAsBytes:    []byte{0x00, 0x00, 0x00, 0x00},
 				expectedAvpLength:       12,
 				expectedAvpPaddedLength: 12,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    float32(-16635.1234),
 				expectedValueAsBytes:    []byte{0xc6, 0x81, 0xf6, 0x3f},
 				expectedAvpLength:       12,
@@ -598,10 +598,10 @@ func TestFloat32(t *testing.T) {
 			},
 		},
 		[]badTypedValueTest{
-			badTypedValueTest{
+			{
 				badTypedValueToTest: uint32(0),
 			},
-			badTypedValueTest{
+			{
 				badTypedValueToTest: float64(0),
 			},
 		}); err != nil {
@@ -612,19 +612,19 @@ func TestFloat32(t *testing.T) {
 func TestFloat64(t *testing.T) {
 	if err := typedAvpComparisonTest(50, 0, Float64,
 		[]goodTypedValueTestValues{
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    float64(0),
 				expectedValueAsBytes:    []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 				expectedAvpLength:       16,
 				expectedAvpPaddedLength: 16,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    float64(0.0),
 				expectedValueAsBytes:    []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
 				expectedAvpLength:       16,
 				expectedAvpPaddedLength: 16,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    float64(-16635.1234),
 				expectedValueAsBytes:    []byte{0xc0, 0xd0, 0x3e, 0xc7, 0xe5, 0xc9, 0x1d, 0x15},
 				expectedAvpLength:       16,
@@ -632,10 +632,10 @@ func TestFloat64(t *testing.T) {
 			},
 		},
 		[]badTypedValueTest{
-			badTypedValueTest{
+			{
 				badTypedValueToTest: uint32(0),
 			},
-			badTypedValueTest{
+			{
 				badTypedValueToTest: float32(0),
 			},
 		}); err != nil {
@@ -646,19 +646,19 @@ func TestFloat64(t *testing.T) {
 func TestEnumerated(t *testing.T) {
 	if err := typedAvpComparisonTest(50, 0, Enumerated,
 		[]goodTypedValueTestValues{
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    int32(0),
 				expectedValueAsBytes:    []byte{0x0, 0x0, 0x0, 0x0},
 				expectedAvpLength:       12,
 				expectedAvpPaddedLength: 12,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    int32(-2147483648),
 				expectedValueAsBytes:    []byte{0x80, 0x00, 0x00, 0x00},
 				expectedAvpLength:       12,
 				expectedAvpPaddedLength: 12,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    int32(2147483647),
 				expectedValueAsBytes:    []byte{0x7f, 0xff, 0xff, 0xff},
 				expectedAvpLength:       12,
@@ -666,13 +666,13 @@ func TestEnumerated(t *testing.T) {
 			},
 		},
 		[]badTypedValueTest{
-			badTypedValueTest{
+			{
 				badTypedValueToTest: uint32(0),
 			},
-			badTypedValueTest{
+			{
 				badTypedValueToTest: uint32(2130706432),
 			},
-			badTypedValueTest{
+			{
 				badTypedValueToTest: uint32(2147483648),
 			},
 		}); err != nil {
@@ -688,25 +688,25 @@ func TestOctetString(t *testing.T) {
 
 	if err := typedAvpComparisonTest(50, 0, OctetString,
 		[]goodTypedValueTestValues{
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    []byte{},
 				expectedValueAsBytes:    []byte{},
 				expectedAvpLength:       8,
 				expectedAvpPaddedLength: 8,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    []byte{0},
 				expectedValueAsBytes:    []byte{0},
 				expectedAvpLength:       9,
 				expectedAvpPaddedLength: 12,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    []byte{0xff, 0x0, 0xff},
 				expectedValueAsBytes:    []byte{0xff, 0x0, 0xff},
 				expectedAvpLength:       11,
 				expectedAvpPaddedLength: 12,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    reallyLongByteSet,
 				expectedValueAsBytes:    reallyLongByteSet,
 				expectedAvpLength:       2056,
@@ -714,10 +714,10 @@ func TestOctetString(t *testing.T) {
 			},
 		},
 		[]badTypedValueTest{
-			badTypedValueTest{
+			{
 				badTypedValueToTest: uint32(0),
 			},
-			badTypedValueTest{
+			{
 				badTypedValueToTest: []int{0, 1},
 			},
 		}); err != nil {
@@ -729,43 +729,43 @@ func TestOctetString(t *testing.T) {
 func TestTime(t *testing.T) {
 	if err := typedAvpComparisonTest(50, 0, Time,
 		[]goodTypedValueTestValues{
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    []byte{0xe1, 0xba, 0xb6, 0x8c},
 				expectedValueAsBytes:    []byte{0xe1, 0xba, 0xb6, 0x8c},
 				expectedAvpLength:       12,
 				expectedAvpPaddedLength: 12,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    uint32(0),
 				expectedValueAsBytes:    []byte{0, 0, 0, 0},
 				expectedAvpLength:       12,
 				expectedAvpPaddedLength: 12,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    uint32(3787110028),
 				expectedValueAsBytes:    []byte{0xe1, 0xba, 0xb6, 0x8c},
 				expectedAvpLength:       12,
 				expectedAvpPaddedLength: 12,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    time.Unix(1578034828, 0),
 				expectedValueAsBytes:    []byte{0xe1, 0xb9, 0x65, 0x0c},
 				expectedAvpLength:       12,
 				expectedAvpPaddedLength: 12,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    timeStructToTimeStructPointer(time.Unix(1578034828, 0)),
 				expectedValueAsBytes:    []byte{0xe1, 0xb9, 0x65, 0x0c},
 				expectedAvpLength:       12,
 				expectedAvpPaddedLength: 12,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    time.Date(1900, time.January, 1, 0, 0, 0, 0, time.UTC),
 				expectedValueAsBytes:    []byte{0, 0, 0, 0},
 				expectedAvpLength:       12,
 				expectedAvpPaddedLength: 12,
 			},
-			goodTypedValueTestValues{
+			{
 				goodTypedValueToTest:    timeStructToTimeStructPointer(time.Date(1900, time.January, 1, 0, 0, 0, 0, time.UTC)),
 				expectedValueAsBytes:    []byte{0, 0, 0, 0},
 				expectedAvpLength:       12,
@@ -773,37 +773,37 @@ func TestTime(t *testing.T) {
 			},
 		},
 		[]badTypedValueTest{
-			badTypedValueTest{
+			{
 				badTypedValueToTest: int32(0),
 			},
-			badTypedValueTest{
+			{
 				badTypedValueToTest: []byte{},
 			},
-			badTypedValueTest{
+			{
 				badTypedValueToTest: []byte{0},
 			},
-			badTypedValueTest{
+			{
 				badTypedValueToTest: []byte{0, 1},
 			},
-			badTypedValueTest{
+			{
 				badTypedValueToTest: []byte{0, 1, 2},
 			},
-			badTypedValueTest{
+			{
 				badTypedValueToTest: []byte{0, 1, 2, 3, 4},
 			},
-			badTypedValueTest{
+			{
 				badTypedValueToTest: []uint32{0, 1, 2, 3},
 			},
-			badTypedValueTest{
+			{
 				badTypedValueToTest: time.Unix(68719476736, 0),
 			},
-			badTypedValueTest{
+			{
 				badTypedValueToTest: timeStructToTimeStructPointer(time.Unix(68719476736, 0)),
 			},
-			badTypedValueTest{
+			{
 				badTypedValueToTest: time.Date(1899, time.December, 31, 23, 59, 59, 0, time.UTC),
 			},
-			badTypedValueTest{
+			{
 				badTypedValueToTest: timeStructToTimeStructPointer(time.Date(1899, time.December, 31, 23, 59, 59, 0, time.UTC)),
 			},
 		}); err != nil {

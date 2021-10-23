@@ -4,33 +4,61 @@
 
 ### Emulate Gx callflow (PCRF and PCEF).  Includes CCR/A PCEF->PCRF and RAR/A PCRF->PCEF
 
-### Example
+### Examples
 
+## Creating and using a Dictionary
+
+```golang
     d := diameter.dictionary.FromYamlFile( yaml_dictionary_file_path )
+```
 
-    i := diameter.NewInstance( origin_host, origin_realm )
-    i.UseCallbacks( ... ) // start goroutine; each callback in a separate goroutine
+## Base Application Server
 
-    i.StartListening( bind_addr, bind_port )
-    p := i.ConnectToPeer( remote_addr, remote_port )
-    p.SendMessage( d.Message( "SLR", diameter.MessageFlags{}, []*AVP{
-        d.AVP("Origin-Host", "foo.bar.com"),
-        d.AVP("Origin-Realm", "bar.com"), 
-        d.AVP("Auth-Request-Type", "AUTHENTICATE_ONLY"),
-        ...}
-    ) ) )
+```golang
+    server := NewBaseApplicationServer(BaseCapabilities{OriginHost: "host", OriginRealm: "realm", ...}).
+        SetAuthApplicationIDs(uint32[]{1, 2, 3}).
+        SetIncomingTransportFilter(transportFilterFunction).
+        SetIncomingCapabilitiesExchangeFilter(cerFilterFunction)
+    serverEventChan := make(chan *BaseNodeEventMessage)
+    server.Start(serverEventChan)
 
     for {
-        msg := i.HandlerChannel
+        switch event := <-serverEventChan; event.Type {
+        case IncomingTransportAttemptBlocked:
+            // ...
 
-        if msg.type == PEER_CONNECTED ...
-        if msg.type == PEER_CONNECTION_TERMINATED ...
-        if msg.type == MESSAGE_FROM_PEER ...
-        if msg.type == MESSAGE_DELIVERY_FAILURE ...
+        case IncomingPeerBlockedOnCapbilitiesExchange:
+            // ...
+
+        case CapabilitiesExchangeSuccessfullyCompleted:
+            // ...
+
+        // ... etc ...
+        }
     }
+```
 
-    or using callbacks:
-        PeerConnected( peer )
-        PeerDisconnected( peer, reason )
-        MessageReceived( message, from_peer )
-        MessageDeliveryFailed( message, to_peer, reason )
+## Base Application Client
+
+```golang
+    client := NewBaseApplicationClient(BaseCapabilities{OriginHost: "host", OriginRealm: "realm", ...}).
+        SetAuthApplicationIDs(uint32[]{1, 2, 3}).
+        SetIncomingTransportFilter(transportFilterFunction).
+        SetIncomingCapabilitiesExchangeFilter(cerFilterFunction)
+    clientEventChan := make(chan *BaseNodeEventMessage)
+    client.Start(clientEventChan)
+
+    for {
+        select {
+            case event := <-clientEventChan:
+                switch event.Type {
+                    // ...
+                }
+
+            default:
+                if someConditionIsTrue {
+                    client.ConnectToServer(...)
+                }
+        }
+    }
+```
