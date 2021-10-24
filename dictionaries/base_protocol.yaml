@@ -1,0 +1,223 @@
+---
+Metadata:
+  - Name: "Diameter Base Protocol"
+    Specifications:
+       - Type: IETF-RFC
+         Identifier: "6733"
+         URL: "https://www.rfc-editor.org/rfc/rfc6733.html"
+AvpTypes:
+    - Name: "User-Name"
+      Code: 1
+      Vendor-Id: 0
+      Type: UTF8String
+    - Name: "Class"
+      Code: 25
+      Vendor-Id: 0
+      Type: OctetString
+    - Name: "Session-Timeout"
+      Code: 27
+      Vendor-Id: 0
+      Type: Unsigned32
+    - Name: "Proxy-State"
+      Code: 33
+      Vendor-Id: 0
+      Type: OctetString
+    - Name: "Acct-Session-Id"
+      Code: 44
+      Vendor-Id: 0
+      Type: OctetString
+    - Name: "Acct-Multi-Session-Id"
+      Code: 50
+      Vendor-Id: 0
+      Type: UTF8String
+    - Name: "Event-Timestamp"
+      Code: 55
+      Vendor-Id: 0
+      Type: Time
+    - Name: "Acct-Interim-Interval"
+      Code: 85
+      Vendor-Id: 0
+      Type: Unsigned32
+    - Name: "Host-IP-AddressInband-Security"
+      Code: 257
+      Vendor-Id: 0
+      Type: Address
+    - Name: "Auth-Application-Id"
+      Code: 258
+      Vendor-Id: 0
+      Type: Unsigned32
+    - Name: "Acct-Application-Id"
+      Code: 259
+      Vendor-Id: 0
+      Type: Unsigned32
+    - Name: "Vendor-Specific-Application-Id"
+      Code: 260
+      Vendor-Id: 0
+      Type: Unsigned32
+    - Name: "Redirect-Host-Usage"
+      Code: 261
+      Vendor-Id: 0
+      Type: Enumerated
+    - Name: "Redirect-Max-Cache-Time"
+      Code: 262
+      Vendor-Id: 0
+      Type: Unsigned32
+    - Name: "Session-Id"
+      Code: 263
+      Vendor-Id: 0
+      Type: UTF8String
+    - Name: "Origin-Host"
+      Code: 264
+      Vendor-Id: 0
+      Type: DiamIdent
+    - Name: "Supported-Vendor-Id"
+      Code: 265
+      Vendor-Id: 0
+      Type: Unsigned32
+    - Name: "Vendor-Id"
+      Code: 266
+      Vendor-Id: 0
+      Type: Unsigned32
+    - Name: "Firmware-Revision"
+      Code: 267
+      Vendor-Id: 0
+      Type: Unsigned32
+    - Name: "Result-Code"
+      Code: 268
+      Vendor-Id: 0
+      Type: Unsigned32
+    - Name: "Product-Name"
+      Code: 269
+      Vendor-Id: 0
+      Type: UTF8String
+    - Name: "Session-Binding"
+      Code: 270
+      Vendor-Id: 0
+      Type: Unsigned32
+    - Name: "Session-Server-Failover"
+      Code: 271
+      Vendor-Id: 0
+      Type: Enumerated
+    - Name: "Multi-Round-Time-Out"
+      Code: 272
+      Vendor-Id: 0
+      Type: Unsigned32
+    - Name: "Disconnect-Cause"
+      Code: 273
+      Vendor-Id: 0
+      Type: Enumerated
+    - Name: "Auth-Request-Type"
+      Code: 274
+      Vendor-Id: 0
+      Type: Enumerated
+    - Name: "Auth-Grace-Period"
+      Code: 276
+      Vendor-Id: 0
+      Type: Unsigned32
+    - Name: "Auth-Session-State"
+      Code: 277
+      Vendor-Id: 0
+      Type: Enumerated
+    - Name: "Origin-State-Id"
+      Code: 278
+      Vendor-Id: 0
+      Type: Unsigned32
+    - Name: "Failed-AVP"
+      Code: 279
+      Vendor-Id: 0
+      Type: Grouped
+    - Name: "Proxy-Host"
+      Code: 280
+      Vendor-Id: 0
+      Type: DiamIdent
+    - Name: "Error-Message"
+      Code: 281
+      Vendor-Id: 0
+      Type: UTF8String
+    - Name: "Route-Record"
+      Code: 282
+      Vendor-Id: 0
+      Type: DiamIdent
+    - Name: "Destination-Realm"
+      Code: 283
+      Vendor-Id: 0
+      Type: DiamIdent
+    - Name: "Proxy-Info"
+      Code: 284
+      Vendor-Id: 0
+      Type: Grouped
+    - Name: "Re-Auth-Request-Type"
+      Code: 285
+      Vendor-Id: 0
+      Type: Enumerated
+    - Name: "Accounting-Sub-Session-Id"
+      Code: 287
+      Vendor-Id: 0
+      Type: Unsigned64
+    - Name: "Authorization-Lifetime"
+      Code: 291
+      Vendor-Id: 0
+      Type: Unsigned32
+    - Name: "Redirect-Host"
+      Code: 292
+      Vendor-Id: 0
+      Type: DiamURI
+    - Name: "Destination-Host"
+      Code: 293
+      Vendor-Id: 0
+      Type: DiamIdent
+    - Name: "Error-Reporting-Host"
+      Code: 294
+      Vendor-Id: 0
+      Type: DiamIdent
+    - Name: "Termination-Cause"
+      Code: 295
+      Vendor-Id: 0
+      Type: Enumerated
+    - Name: "Origin-Realm"
+      Code: 296
+      Vendor-Id: 0
+      Type: DiamIdent
+    - Name: "Experimental-Result"
+      Code: 297
+      Vendor-Id: 0
+      Type: Grouped
+    - Name: "Experimental-Result-Code"
+      Code: 298
+      Vendor-Id: 0
+      Type: Unsigned32
+    - Name: "-Id"
+      Code: 299
+      Vendor-Id: 0
+      Type: Unsigned32
+    - Name: "Accounting-Record-Type"
+      Code: 480
+      Vendor-Id: 0
+      Type: Enumerated
+    - Name: "Accounting-Realtime-Required"
+      Code: 483
+      Vendor-Id: 0
+      Type: Enumerated
+    - Name: "Accounting-Record-Number"
+      Code: 485
+      Vendor-Id: 0
+      Type: Unsigned32
+MessageTypes:
+    - BaseName: "Capabilities-Exchange"
+      Code: 257
+      Application-Id: 0
+      Abbreviations:
+        Request: CER
+        Answer: CEA
+    - Basename: "Device-Watchdog"
+      Code: 280
+      Application-Id: 0
+      Abbreviations:
+          Request: "DWR"
+          Answer: "DWA"
+    - Basename: "Disconnect-Peer"
+      Code: 282
+      Applicaiton-Id: 0
+      Abbreviations:
+          Request: "DPR"
+          Answer: "DPA"

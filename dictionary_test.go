@@ -2,6 +2,8 @@ package diameter_test
 
 import (
 	"fmt"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	diameter "github.com/blorticus/go-diameter"
@@ -228,6 +230,28 @@ MessageTypes:
 				t.Errorf("(TestDictionaryValidValues) (AVP test number %d) %s", indexForTestCase+1, err.Error())
 			}
 		}
+	}
+}
+
+func TestStandardDictionariesLoad(t *testing.T) {
+	_, testExecutingFilename, _, _ := runtime.Caller(0)
+	packageRootDirectory := filepath.Dir(testExecutingFilename)
+
+	dictionaryFiles, err := filepath.Glob(packageRootDirectory + "/dictionaries/*.yaml")
+	if err != nil {
+		t.Errorf("error seeking dictionary files (%s): %s", packageRootDirectory+"/dictionaries/*.yaml", err.Error())
+		return
+	}
+
+	if len(dictionaryFiles) == 0 {
+		t.Errorf("no dictionary files found as (%s)", packageRootDirectory+"/dictionaries/*.yaml")
+	}
+
+	for _, dictionaryFilePath := range dictionaryFiles {
+		if _, err := diameter.DictionaryFromYamlFile(dictionaryFilePath); err != nil {
+			t.Errorf("failed to parse dictionary file (%s): %s", dictionaryFilePath, err.Error())
+		}
+
 	}
 }
 

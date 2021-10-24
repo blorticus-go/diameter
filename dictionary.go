@@ -7,6 +7,19 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+// DictionaryYamlMetadataSpecificationType is the type for a dictionary yaml field Metadata section
+type DictionaryYamlMetadataSpecificationType struct {
+	Type       string `yaml:"Type"`
+	Identifier string `yaml:"Identifier"`
+	URL        string `yaml:"URL"`
+}
+
+// DictionaryYamlMetadataType is the type for a dictionary yaml Metadata section Specification subsection
+type DictionaryYamlMetadataType struct {
+	Name           string                                    `yaml:"Name"`
+	Specifications []DictionaryYamlMetadataSpecificationType `yaml:"Specifications"`
+}
+
 // DictionaryYamlAvpEnumerationType is the type for Avp Enumerations
 type DictionaryYamlAvpEnumerationType struct {
 	Name  string `yaml:"Name"`
