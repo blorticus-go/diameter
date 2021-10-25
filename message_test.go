@@ -558,11 +558,11 @@ func TestMessageEqualsWhenMessagesAreEqual(t *testing.T) {
 		NewTypedAVP(269, 0, true, UTF8String, "GoDiameter"),
 	}, []*AVP{})
 
-	if !leftMessage.Equal(rightMessage) {
+	if !leftMessage.Equals(rightMessage) {
 		t.Errorf("Expected leftMessage.Equal(rightMessage) to be true, is false")
 	}
 
-	if !rightMessage.Equal(leftMessage) {
+	if !rightMessage.Equals(leftMessage) {
 		t.Errorf("Expected rightMessage.Equal(leftMessage) to be true, is false")
 	}
 }
@@ -643,11 +643,11 @@ func TestMessageEqualsWhenMessagesAreNotEqual(t *testing.T) {
 	}
 
 	for comparisonMessageIndex, rightMessage := range messagesToCompare {
-		if leftMessage.Equal(rightMessage) {
+		if leftMessage.Equals(rightMessage) {
 			t.Errorf("On comparison message at index (%d), expected leftMessage.Equal(rightMessage) to be false, but is true", comparisonMessageIndex)
 		}
 
-		if rightMessage.Equal(leftMessage) {
+		if rightMessage.Equals(leftMessage) {
 			t.Errorf("On comparison message at index (%d), expected rightMessage.Equal(leftMessage) to be false, but is true", comparisonMessageIndex)
 		}
 	}

@@ -83,7 +83,7 @@ func (m *Message) Encode() []byte {
 }
 
 // DecodeMessage accepts an octet stream and attempts to interpret it as a Diameter
-// message.  The stream must at least a single Diameter
+// message.  The stream must contain at least a single Diameter
 // message.  To decode incoming streams, use a MessageStreamReader.  If the input
 // stream is at least one Diameter message, or an error occurs in the reading of
 // the stream or creation of the message, return nil and an error; otherwise
@@ -178,10 +178,25 @@ func NewMessage(flags uint8, code Uint24, appID uint32, hopByHopID uint32, endTo
 	return m
 }
 
-// Equal compares the current Message object to a different message object.  If
+// Clone makes a copy of the current message.  No effort is made to be thread-safe
+// against changes to the message being cloned.  All AVPs in this message are also
+// cloned.
+func (m *Message) Clone() *Message {
+	clonedAvps := make([]*AVP, len(m.Clone().Avps))
+	for _, srcAvp := range m.Avps {
+		clonedAvps = append(clonedAvps, srcAvp.Clone())
+	}
+
+	clonedMessage := *m
+	clonedMessage.Avps = clonedAvps
+
+	return &clonedMessage
+}
+
+// Equals compares the current Message object to a different message object.  If
 // they have equivalent values for all fields and AVPs, return true; otherwise
 // return false.  AVPs are compared exactly in order.
-func (m *Message) Equal(c *Message) bool {
+func (m *Message) Equals(c *Message) bool {
 	// XXX: This can almost certainly be made into just a straight memory
 	// value comparison between the two objects.
 	if m == nil {
@@ -203,6 +218,20 @@ func (m *Message) Equal(c *Message) bool {
 	}
 
 	return true
+}
+
+// MakeMeIntoAnAnswerForTheRequestMessage extracts the end-to-end-id and hop-by-hop-id
+// from the request message and applies them to this message.  It also clears
+// the request flag if it is set and sets this message's code to the request
+// message's code.  Return this message, so that this call may be chained, if
+// desired.
+func (m *Message) MakeMeIntoAnAnswerForTheRequestMessage(request *Message) *Message {
+	m.EndToEndID = request.EndToEndID
+	m.HopByHopID = request.HopByHopID
+	m.Code = request.Code
+	m.Flags &^= MsgFlagRequest
+
+	return m
 }
 
 const (
