@@ -521,6 +521,15 @@ func (avp *AVP) updatePaddedLength() {
 	}
 }
 
+// Clone makes a copy of this AVP and returns it.  No effort is made to
+// make the copy thread-safe.
+func (avp *AVP) Clone() *AVP {
+	clone := *avp
+	clone.Data = make([]byte, len(avp.Data))
+	copy(clone.Data, avp.Data)
+	return &clone
+}
+
 // Equal compares the current AVP to another AVP to determine if they are byte-wise
 // identical (that is, if they would map identically as a byte stream using Encode)
 func (avp *AVP) Equal(a *AVP) bool {
