@@ -387,12 +387,129 @@ func NewTypedAVP(code uint32, vendorID uint32, mandatory bool, avpType AVPDataTy
 	return avp
 }
 
+// ConvertAVPDataToTypedData attempts to convert the provided AVP data into a typed value,
+// according to the data type provided.
+func ConvertAVPDataToTypedData(avpData []byte, dataType AVPDataType) (interface{}, error) {
+	switch dataType {
+	case Unsigned32:
+		if len(avpData) != 4 {
+			return nil, fmt.Errorf("Unsigned32 type requires exactly four bytes")
+		}
+
+		return binary.BigEndian.Uint32(avpData), nil
+
+	case Unsigned64:
+		if len(avpData) != 8 {
+			return nil, fmt.Errorf("Unsigned64 type requires exactly eight bytes")
+		}
+
+		return binary.BigEndian.Uint64(avpData), nil
+
+	case Integer32:
+		if len(avpData) != 4 {
+			return nil, fmt.Errorf("Integer32 type requires exactly four bytes")
+		}
+
+		return int32(binary.BigEndian.Uint32(avpData)), nil
+
+	case Integer64:
+		if len(avpData) != 8 {
+			return nil, fmt.Errorf("Integer64 type requires exactly eight bytes")
+		}
+
+		return int64(binary.BigEndian.Uint64(avpData)), nil
+
+	case Float32:
+		if len(avpData) != 4 {
+			return nil, fmt.Errorf("Float32 type requires exactly four bytes")
+		}
+
+		return float32(binary.BigEndian.Uint32(avpData)), nil
+
+	case Float64:
+		if len(avpData) != 8 {
+			return nil, fmt.Errorf("Float64 type requires exactly eight bytes")
+		}
+
+		return float64(binary.BigEndian.Uint64(avpData)), nil
+
+	case UTF8String:
+		return string(avpData), nil
+
+	case OctetString:
+		return avpData[:], nil
+
+	case Enumerated:
+		if len(avpData) != 4 {
+			return nil, fmt.Errorf("Enumerated type requires exactly four bytes")
+		}
+
+		return int32(binary.BigEndian.Uint32(avpData)), nil
+
+	case Time:
+		if len(avpData) != 4 {
+			return nil, fmt.Errorf("Time type requires exactly four bytes")
+		}
+
+		return binary.BigEndian.Uint32(avpData), nil
+
+	case Address:
+		switch len(avpData) {
+		case 6:
+			if binary.BigEndian.Uint16(avpData[:2]) != 1 {
+				return nil, fmt.Errorf("Address Type must be for IPv4 or IPv6 address only")
+			}
+			return net.IPv4(avpData[2], avpData[3], avpData[4], avpData[5]), nil
+
+		case 10:
+			if binary.BigEndian.Uint16(avpData[:2]) != 2 {
+				return nil, fmt.Errorf("Address Type must be for IPv4 or IPv6 address only")
+			}
+			ipAddr := net.IP(avpData[2:])
+			return &ipAddr, nil
+
+		default:
+			return nil, fmt.Errorf("Address type requires exactly 6 bytes or 10 bytes")
+		}
+
+	case DiamIdent:
+		return string(avpData), nil
+
+	case Grouped:
+		groupedBytes := avpData
+		avpsInGroup := make([]*AVP, 10)
+
+		for len(groupedBytes) > 0 {
+			nextAvp, err := DecodeAVP(groupedBytes)
+			if err != nil {
+				return nil, fmt.Errorf("unable to decode AVP inside group: %s", err.Error())
+			}
+			avpsInGroup = append(avpsInGroup, nextAvp)
+			groupedBytes = groupedBytes[nextAvp.PaddedLength+1:]
+		}
+
+		return avpsInGroup, nil
+
+	case IPFilterRule:
+		return avpData[:], nil
+
+	default:
+		return nil, fmt.Errorf("type not valid for an AVP")
+	}
+}
+
 // MakeProtected sets avp.Protected to true and returns the AVP reference.  It is so rare for
 // this flag to be set, this provides a convenient method to set the value inline after
 // AVP creation
 func (avp *AVP) MakeProtected() *AVP {
 	avp.Protected = true
 	return avp
+}
+
+// ConvertDataToTypedData overrides any internally stored typed data representation for
+// the AVP and attempts to convert the raw data into the named type.
+func (avp *AVP) ConvertDataToTypedData(dataType AVPDataType) (interface{}, error) {
+	return ConvertAVPDataToTypedData(avp.Data, dataType)
 }
 
 // func appendUint16(avp *bytes.Buffer, dataUint16 uint16) {

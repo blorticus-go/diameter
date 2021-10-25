@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"io"
 )
 
 // Uint24 is a documentation reference type.  There is no enforcement of boundaries;
@@ -220,12 +221,12 @@ func (m *Message) Equals(c *Message) bool {
 	return true
 }
 
-// MakeMeIntoAnAnswerForTheRequestMessage extracts the end-to-end-id and hop-by-hop-id
+// BecomeAnAnswerBasedOnTheRequestMessage extracts the end-to-end-id and hop-by-hop-id
 // from the request message and applies them to this message.  It also clears
 // the request flag if it is set and sets this message's code to the request
 // message's code.  Return this message, so that this call may be chained, if
 // desired.
-func (m *Message) MakeMeIntoAnAnswerForTheRequestMessage(request *Message) *Message {
+func (m *Message) BecomeAnAnswerBasedOnTheRequestMessage(request *Message) *Message {
 	m.EndToEndID = request.EndToEndID
 	m.HopByHopID = request.HopByHopID
 	m.Code = request.Code
@@ -238,19 +239,19 @@ const (
 	streamReaderBaseBufferSizeInBytes int = 16384
 )
 
-// MessageStreamReader simplifies the reading of an octet stream which must be
+// MessageByteReader simplifies the reading of an octet stream which must be
 // converted to one or more diameter.Message objects.  Generally, a new
-// MessageStreamReader is created, then ReceiveBytes() is repeatedly called on
+// MessageByteReader is created, then ReceiveBytes() is repeatedly called on
 // an input stream (which must be in network byte order) as bytes arrive.
 // This method will return diameter.Message objects as they can be extracted, and
 // store any bytes that are left over after message conversion
-type MessageStreamReader struct {
+type MessageByteReader struct {
 	incomingBuffer []byte
 }
 
-// NewMessageStreamReader creates a new MessageStreamReader object
-func NewMessageStreamReader() *MessageStreamReader {
-	return &MessageStreamReader{
+// NewMessageByteReader creates a new MessageStreamReader object
+func NewMessageByteReader() *MessageByteReader {
+	return &MessageByteReader{
 		incomingBuffer: make([]byte, 0, streamReaderBaseBufferSizeInBytes),
 	}
 }
@@ -258,34 +259,45 @@ func NewMessageStreamReader() *MessageStreamReader {
 // ReceiveBytes returns one or more diameter.Message objects read from the incoming
 // byte stream.  Return nil if no Message is yet found.  Return error on malformed
 // byte stream.  If an error is returned, subsequent calls are no longer reliable.
-func (reader *MessageStreamReader) ReceiveBytes(incoming []byte) ([]*Message, error) {
+func (reader *MessageByteReader) ReceiveBytes(incoming []byte) ([]*Message, error) {
 	reader.incomingBuffer = append(reader.incomingBuffer, incoming...)
-	incomingBytesLeftToProcess := reader.incomingBuffer
 
-	setOfExtractedMessages := make([]*Message, 0, 8)
+	setOfExtractedMessages := make([]*Message, 3)
 
-	var nextMessageInStream *Message
-	var err error
 	for {
-		nextMessageInStream, incomingBytesLeftToProcess, err = reader.extractNextMessageIfThereIsOne(incomingBytesLeftToProcess)
+		nextMessageInStream, err := reader.ReceiveBytesButReturnAtMostOneMessage(reader.incomingBuffer)
 
 		if err != nil {
 			return nil, err
-		} else if nextMessageInStream != nil {
+		}
+
+		if nextMessageInStream != nil {
 			setOfExtractedMessages = append(setOfExtractedMessages, nextMessageInStream)
 		} else {
-			if len(incomingBytesLeftToProcess) != len(reader.incomingBuffer) {
-				if len(incomingBytesLeftToProcess) < streamReaderBaseBufferSizeInBytes {
-					reader.incomingBuffer = make([]byte, 0, streamReaderBaseBufferSizeInBytes)
-				} else {
-					reader.incomingBuffer = make([]byte, 0, len(incomingBytesLeftToProcess)+streamReaderBaseBufferSizeInBytes)
-				}
-				reader.incomingBuffer = append(reader.incomingBuffer, incomingBytesLeftToProcess...)
-			}
-
 			return setOfExtractedMessages, nil
 		}
 	}
+}
+
+// ReceiveBytesButReturnAtMostOneMessage is the same as ReceiveBytes(), but it will return no more
+// than one message.  If more than one message is available in the internal buffer plus the incoming bytes,
+// all messages after the first are saved in the internal buffer, which means they'll be returned on the
+// next call to ReceiveBytes().
+func (reader *MessageByteReader) ReceiveBytesButReturnAtMostOneMessage(incoming []byte) (*Message, error) {
+	reader.incomingBuffer = append(reader.incomingBuffer, incoming...)
+
+	nextMessageInStream, incomingBytesLeftToProcess, err := extractNextMessageInByteBufferIfThereIsOne(reader.incomingBuffer)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if nextMessageInStream != nil {
+		reader.incomingBuffer = incomingBytesLeftToProcess
+		return nextMessageInStream, nil
+	}
+
+	return nil, nil
 }
 
 // Read a stream buffer and attempt to extract a Message, if there are enough
@@ -293,7 +305,7 @@ func (reader *MessageStreamReader) ReceiveBytes(incoming []byte) ([]*Message, er
 // a message, return (nil, incoming, error). If there is at least enough bytes for a message
 // and the stream is well-formed, return (m, leftOverBytes, nil), where m is a Message and
 // remainder is a slice of incoming, starting one byte after the extracted message.
-func (reader MessageStreamReader) extractNextMessageIfThereIsOne(incoming []byte) (*Message, []byte, error) {
+func extractNextMessageInByteBufferIfThereIsOne(incoming []byte) (*Message, []byte, error) {
 	if len(incoming) == 0 {
 		return nil, incoming, nil
 	}
@@ -339,4 +351,68 @@ func (reader MessageStreamReader) extractNextMessageIfThereIsOne(incoming []byte
 
 		return m, incoming[m.Length:], nil
 	}
+}
+
+// MessageStreamReader is the same as MessageByteReader, but instead of being passed
+// bytes repeatedly, it is supplied an io.Reader, and reads from that, blocking until
+// messages are found on each call to ReadNextMessage().
+type MessageStreamReader struct {
+	underlyingReader   io.Reader
+	internalByteBuffer []byte
+	readBuffer         []byte
+}
+
+// NewMessageStreamReader creates an empty reader which will use the provided io.Reader
+// for each call to ReadNextMessage().
+func NewMessageStreamReader(usingReader io.Reader) *MessageStreamReader {
+	return &MessageStreamReader{
+		underlyingReader:   usingReader,
+		internalByteBuffer: make([]byte, 18000),
+		readBuffer:         make([]byte, 9000),
+	}
+}
+
+// ReadNextMessage will repeatedly perform a Read() on the underlying Reader until
+// a message is found.  It will then queue any additional bytes after the returned
+// message.  If that internal byte buffer contains a complete message, a subsequent
+// call will return that message and buffer again any left over bytes.  This will
+// continue until the internal buffer no longer contains a complete message, at which
+// point, another Read() will occur.  The returned error may be io.EOF.  In this case,
+// the returned message will still be nil.
+func (reader *MessageStreamReader) ReadNextMessage() (*Message, error) {
+	for {
+		message, err := reader.ReadOnce()
+		if err != nil {
+			return nil, err
+		}
+
+		if message != nil {
+			return message, nil
+		}
+	}
+}
+
+// ReadOnce does the same as ReadNextMessage(), but it will perform no more than a
+// single Read() on the underlying Reader.  If the Read() (plus any internal buffer)
+// does not yield a complete message, this will return.  In that case, the returned
+// Message and error will both be nil.
+func (reader *MessageStreamReader) ReadOnce() (*Message, error) {
+	message, leftOverBytes, err := extractNextMessageInByteBufferIfThereIsOne(reader.internalByteBuffer)
+	if err != nil {
+		return nil, err
+	}
+
+	if message != nil {
+		reader.internalByteBuffer = leftOverBytes
+		return message, nil
+	}
+
+	bytesRead, err := reader.underlyingReader.Read(reader.internalByteBuffer)
+	if err != nil {
+		return nil, err
+	}
+
+	reader.internalByteBuffer = append(reader.internalByteBuffer, reader.internalByteBuffer[:bytesRead]...)
+
+	return nil, nil
 }

@@ -78,6 +78,11 @@ func (info *CapabiltiesExchangeInformation) MakeCEAUsingResultCode(resultCode ui
 	return NewMessage(MsgFlagRequest, 257, 0, 0, 0, msgAvps, []*AVP{})
 }
 
+// MakeCEA is shorthand for MakeCeaUsingResultCode(2002).
+func (info *CapabiltiesExchangeInformation) MakeCEA() *Message {
+	return info.MakeCEAUsingResultCode(2002)
+}
+
 // NodeListener contains information describing a listener for incoming peer flows
 type NodeListener struct {
 	listener                               net.Listener
@@ -129,6 +134,7 @@ const (
 	ListenerFailed                             NodeEventType = -9
 	DuplicationPeerFlowRejected                NodeEventType = -10
 	UnableToParseIncomingMessageStream         NodeEventType = -11
+	InternalFailure                            NodeEventType = -12
 	CapabilitiesExchangeSuccessfullyCompleted  NodeEventType = 1
 	CapabilitiesRequestReceivedFromPeer        NodeEventType = 2
 	ReceivedDiameterMessageFromPeer            NodeEventType = 3

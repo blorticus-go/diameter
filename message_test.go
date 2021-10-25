@@ -280,7 +280,7 @@ func TestMessageStreamWithOneCompleteMessageOnlyInOneRead(t *testing.T) {
 		0x00, 0x00, 0x01, 0x0d, 0x00, 0x00, 0x00, 0x0e, 0x6a, 0x6d, 0x65, 0x74, 0x65, 0x72, 0x00, 0x00,
 	}
 
-	messageReader := NewMessageStreamReader()
+	messageReader := NewMessageByteReader()
 
 	messages, err := messageReader.ReceiveBytes(stream)
 
@@ -308,7 +308,7 @@ func TestMessageStreamWithOneCompleteMessageInThreeReads(t *testing.T) {
 		0x00, 0x00, 0x01, 0x0d, 0x00, 0x00, 0x00, 0x0e, 0x6a, 0x6d, 0x65, 0x74, 0x65, 0x72, 0x00, 0x00,
 	}
 
-	messageReader := NewMessageStreamReader()
+	messageReader := NewMessageByteReader()
 
 	messages, err := messageReader.ReceiveBytes(stream[0:20])
 
@@ -381,7 +381,7 @@ func TestMessageStreamWithThreeCompleteMessagesInOneRead(t *testing.T) {
 		0x00, 0x00, 0x01, 0x0d, 0x00, 0x00, 0x00, 0x0e, 0x6a, 0x6d, 0x65, 0x74, 0x65, 0x72, 0x00, 0x00,
 	}
 
-	messageReader := NewMessageStreamReader()
+	messageReader := NewMessageByteReader()
 
 	messages, err := messageReader.ReceiveBytes(stream)
 
@@ -433,7 +433,7 @@ func TestMessageStreamWithThreeCompleteMessagesInThreeReads(t *testing.T) {
 		0x00, 0x00, 0x01, 0x0d, 0x00, 0x00, 0x00, 0x0e, 0x6a, 0x6d, 0x65, 0x74, 0x65, 0x72, 0x00, 0x00,
 	}
 
-	messageReader := NewMessageStreamReader()
+	messageReader := NewMessageByteReader()
 
 	messages, err := messageReader.ReceiveBytes(stream[0:2])
 

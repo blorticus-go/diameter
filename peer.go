@@ -1,18 +1,20 @@
 package diameter
 
 import (
+	"crypto/rand"
 	"fmt"
 	"io"
 	"net"
 	"strconv"
 	"strings"
+	"time"
 )
 
-type peerType int
+type PeerType int
 
 const (
-	peerIsInitiator peerType = iota
-	peerIsResponder peerType = iota
+	Initator  PeerType = iota
+	Responder PeerType = iota
 )
 
 type PeerConnectionInformation struct {
@@ -24,28 +26,57 @@ type PeerConnectionInformation struct {
 }
 
 type Peer struct {
-	TypeOfPeer                  peerType
+	TypeOfPeer                  PeerType
 	PeerCapabilitiesInformation *CapabiltiesExchangeInformation
 	ConnectionInformation       PeerConnectionInformation
 }
 
 type PeerHandler struct {
-	peer                 *Peer
-	connection           net.Conn
-	diameterStreamReader *MessageStreamReader
-	eventChannel         chan<- *NodeEvent
-	flowReadBuffer       []byte
+	peer                   *Peer
+	connection             net.Conn
+	diameterByteReader     *MessageByteReader
+	eventChannel           chan<- *NodeEvent
+	flowReadBuffer         []byte
+	myCapabilities         *CapabiltiesExchangeInformation
+	nextHopByHopIdentifier uint32
+	nextEndToEndIdentifier uint32
 }
 
 func NewHandlerForInitiatorPeer(flowConnection net.Conn, eventChannel chan<- *NodeEvent) *PeerHandler {
-	return newPeerHandler(flowConnection, peerIsInitiator, eventChannel)
+	return newPeerHandler(flowConnection, Initator, eventChannel)
 }
 
 func NewHandlerForResponderPeer(flowConnection net.Conn, eventChannel chan<- *NodeEvent) *PeerHandler {
-	return newPeerHandler(flowConnection, peerIsResponder, eventChannel)
+	return newPeerHandler(flowConnection, Responder, eventChannel)
 }
 
-func newPeerHandler(flowConnection net.Conn, typeOfPeer peerType, eventChannel chan<- *NodeEvent) *PeerHandler {
+func (handler *PeerHandler) WithCapabilities(capabilities *CapabiltiesExchangeInformation) *PeerHandler {
+	handler.myCapabilities = &(*capabilities)
+	return handler
+}
+
+func (handler *PeerHandler) SeedIdentifiers() (*PeerHandler, error) {
+	initialEndToEndIdentifier, err := generateIdentifierSeedValue()
+	if err != nil {
+		return handler, fmt.Errorf("failed to generate cryptographic seed for end-to-end identifier: %s", err.Error())
+	}
+
+	initialHopByHopIdentifier, err := generateIdentifierSeedValue()
+	if err != nil {
+		return handler, fmt.Errorf("failed to generate cryptographic seed for hop-by-hop identifier: %s", err.Error())
+	}
+
+	handler.nextEndToEndIdentifier = initialEndToEndIdentifier
+	handler.nextHopByHopIdentifier = initialHopByHopIdentifier
+
+	return handler, nil
+}
+
+func (handler *PeerHandler) WithSeededIdentifiers() (*PeerHandler, error) {
+	return handler.SeedIdentifiers()
+}
+
+func newPeerHandler(flowConnection net.Conn, typeOfPeer PeerType, eventChannel chan<- *NodeEvent) *PeerHandler {
 	var localIPAddr, remoteIPAddr *net.IP
 	var localPort, remotePort uint16
 
@@ -74,11 +105,23 @@ func newPeerHandler(flowConnection net.Conn, typeOfPeer peerType, eventChannel c
 				TransportProtocol: flowConnection.LocalAddr().Network(),
 			},
 		},
-		connection:           flowConnection,
-		eventChannel:         eventChannel,
-		diameterStreamReader: NewMessageStreamReader(),
-		flowReadBuffer:       make([]byte, 9000),
+		connection:         flowConnection,
+		eventChannel:       eventChannel,
+		diameterByteReader: NewMessageByteReader(),
+		flowReadBuffer:     make([]byte, 9000),
 	}
+}
+
+func generateIdentifierSeedValue() (uint32, error) {
+	randBytes := make([]byte, 3)
+	if _, err := rand.Read(randBytes); err != nil {
+		return 0, err
+	}
+
+	var seedLower20 uint32 = (uint32(randBytes[0]) << 12) | (uint32(randBytes[1]) << 4) | (uint32(randBytes[2] >> 4))
+	var seed uint32 = (uint32(time.Now().Unix()) << 20) | seedLower20
+
+	return seed, nil
 }
 
 func extractIPAddressAndPortFromAddrNetworkString(networkAddress string) (*net.IP, uint16) {
@@ -104,31 +147,139 @@ func extractIPAddressAndPortFromAddrNetworkString(networkAddress string) (*net.I
 	return &ipAddr, uint16(portAsUint64)
 }
 
-func (handler *PeerHandler) Start(localAgentCapabilities *CapabiltiesExchangeInformation) {
+func (handler *PeerHandler) StartHandling() {
 	defer handler.connection.Close()
 
-	if err := handler.completeCapabilitesExchangeWhenRemotePeerInitiatesFlow(ceaToSendInResponse); err != nil {
+	if handler.myCapabilities == nil {
+		panic("attempt to StartHandling without having set local agent capabilities")
+	}
+
+	if err := handler.completeCapabilitiesExchangeWithPeer(); err != nil {
 		return
 	}
 
 }
 
-func (handler *PeerHandler) completeCapabilitesExchangeWhenRemotePeerInitiatesFlow(ceaToSendInResponse *Message) error {
-	cer := handler.waitForCER()
-	if cer == nil {
-		return fmt.Errorf("failed to receive CER")
+func (handler *PeerHandler) completeCapabilitiesExchangeWithPeer() error {
+	if handler.peer.TypeOfPeer == Initator {
+		cer := handler.waitForCER()
+		if cer == nil {
+			return fmt.Errorf("failed to receive CER")
+		}
+
+		ceaToSendInResponse := handler.myCapabilities.MakeCEA().BecomeAnAnswerBasedOnTheRequestMessage(cer)
+
+		err := handler.SendMessageToPeer(ceaToSendInResponse)
+		if err != nil {
+			handler.sendFatalTransportErrorEvent(err)
+			handler.sendCapabilitiesExchangeFailureEvent(fmt.Errorf("failed to send CEA"))
+			return err
+		}
+
+		return nil
 	}
 
-	ceaToSendInResponse.MakeMeIntoAnAnswerForTheRequestMessage(cer)
+	// peer is Responder
+	cer := handler.myCapabilities.MakeCER()
+	handler.populateMessageIdentifiers(cer)
 
-	err := handler.SendMessageToPeer(ceaToSendInResponse)
+	err := handler.SendMessageToPeer(cer)
 	if err != nil {
 		handler.sendFatalTransportErrorEvent(err)
-		handler.sendCapabilitiesExchangeFailureEvent(fmt.Errorf("failed to send CEA"))
+		handler.sendCapabilitiesExchangeFailureEvent(fmt.Errorf("failed to send CER"))
+	}
+
+	cea := handler.waitForCEA()
+	if cea == nil {
+		return fmt.Errorf("failed to receive CEA")
+	}
+
+	handler.peer.PeerCapabilitiesInformation, err = extractCapabilitiesForPeerFromCapabilitiesExchangeMessage(cea)
+	if err != nil {
+		handler.sendCapabilitiesExchangeFailureEvent(err)
 		return err
 	}
 
 	return nil
+}
+
+func extractCapabilitiesForPeerFromCapabilitiesExchangeMessage(message *Message) (*CapabiltiesExchangeInformation, error) {
+	var originHost, originRealm, productName string
+	var hostIPAddresses []*net.IPAddr
+	var vendorID uint32
+
+	var foundOriginHost, foundOriginRealm, foundProductName, foundHostIPAddresses, foundVendorID bool
+
+	additionalAVPs := make([]*AVP, 10)
+
+	for _, avp := range message.Avps {
+		switch avp.Code {
+		case 264:
+			originHost = string(avp.Data)
+			foundOriginHost = true
+
+		case 296:
+			originRealm = string(avp.Data)
+			foundOriginRealm = true
+
+		case 269:
+			productName = string(avp.Data)
+			foundProductName = true
+
+		case 266:
+			wrappedVendorID, err := avp.ConvertDataToTypedData(Unsigned32)
+			if err != nil {
+				return nil, fmt.Errorf("Vendor-ID AVP is improperly formatted")
+			}
+			vendorID = wrappedVendorID.(uint32)
+			foundVendorID = true
+
+		case 257:
+			wrappedIP, err := avp.ConvertDataToTypedData(Address)
+			if err != nil {
+				return nil, fmt.Errorf("Host-IP-Address AVP contains invalid data: %s", err.Error())
+			}
+
+			ip := wrappedIP.(*net.IP)
+			hostIPAddresses = append(hostIPAddresses, &net.IPAddr{IP: *ip, Zone: ""})
+
+		default:
+			additionalAVPs = append(additionalAVPs, avp)
+		}
+	}
+
+	if !foundOriginHost {
+		return nil, fmt.Errorf("peer asserted no Origin-Host")
+	}
+	if !foundOriginRealm {
+		return nil, fmt.Errorf("peer asserted no Origin-Realm")
+	}
+	if !foundHostIPAddresses {
+		return nil, fmt.Errorf("peer asserted no Host-IP-Addresses")
+	}
+	if !foundProductName {
+		return nil, fmt.Errorf("peer asserted no Product-Name")
+	}
+	if !foundVendorID {
+		return nil, fmt.Errorf("peer asserted no Vendor-ID")
+	}
+
+	return &CapabiltiesExchangeInformation{
+		OriginHost:                 originHost,
+		OriginRealm:                originRealm,
+		HostIPAddresses:            hostIPAddresses,
+		VendorID:                   vendorID,
+		ProductName:                productName,
+		AdditionalAVPsToSendToPeer: additionalAVPs,
+	}, nil
+}
+
+func (handler *PeerHandler) populateMessageIdentifiers(message *Message) {
+	message.HopByHopID = handler.nextHopByHopIdentifier
+	message.EndToEndID = handler.nextEndToEndIdentifier
+
+	handler.nextEndToEndIdentifier++
+	handler.nextEndToEndIdentifier++
 }
 
 func (handler *PeerHandler) waitForCER() (cerMessage *Message) {
@@ -141,7 +292,7 @@ func (handler *PeerHandler) waitForCER() (cerMessage *Message) {
 			return nil
 		}
 
-		messages, err = handler.diameterStreamReader.ReceiveBytes(handler.flowReadBuffer[:bytesRead])
+		messages, err = handler.diameterByteReader.ReceiveBytes(handler.flowReadBuffer[:bytesRead])
 		if err != nil {
 			handler.sendUnableToParseIncomingMessageStreamEvent(err)
 			return nil
@@ -165,8 +316,37 @@ func (handler *PeerHandler) waitForCER() (cerMessage *Message) {
 	return messages[0]
 }
 
+func (handler *PeerHandler) waitForCEA() (ceaMessage *Message) {
+	var message *Message
+
+	for {
+		bytesRead, err := handler.connection.Read(handler.flowReadBuffer)
+		if err != nil {
+			handler.sendTransportReadErrorEvent(err)
+			return nil
+		}
+
+		message, err = handler.diameterByteReader.ReceiveBytesButReturnAtMostOneMessage(handler.flowReadBuffer[:bytesRead])
+		if err != nil {
+			handler.sendUnableToParseIncomingMessageStreamEvent(err)
+			return nil
+		}
+
+		if message != nil {
+			break
+		}
+	}
+
+	if messageIsNotACEA(message) {
+		handler.sendCapabilitiesExchangeFailureEvent(fmt.Errorf("first message from peer is not a CEA"))
+		return nil
+	}
+
+	return message
+}
+
 func (handler *PeerHandler) sendCapabilitiesExchangeAnswerBasedOnCER(cer *Message) error {
-	cea := handler.generateCEA().MakeMeIntoAnAnswerForTheRequestMessage(cer)
+	cea := handler.generateCEA().BecomeAnAnswerBasedOnTheRequestMessage(cer)
 
 	err := handler.SendMessageToPeer(cea)
 	if err != nil {
@@ -200,7 +380,11 @@ func (handler *PeerHandler) sendCapabilitiesExchangeFailureEvent(err error) {
 }
 
 func messageIsNotACER(message *Message) bool {
-	return message.AppID != 0 || message.Code != 257 && !message.IsRequest()
+	return message.AppID != 0 || message.Code != 257 || !message.IsRequest()
+}
+
+func messageIsNotACEA(message *Message) bool {
+	return message.AppID != 0 || message.Code != 257 || message.IsRequest()
 }
 
 func (handler *PeerHandler) sendUnableToParseIncomingMessageStreamEvent(readError error) {
@@ -268,8 +452,18 @@ func (peerListener *IncomingPeerListener) StartListening(eventChannel chan<- *No
 			}
 		}
 
-		peer := NewHandlerForInitiatorPeer(flowConnection, eventChannel)
-		go peer.StartStateMachineExpectingCER(peerListener.cloneableCEA.Clone())
+		peerHandler, err := NewHandlerForInitiatorPeer(flowConnection, eventChannel).WithCapabilities(peerListener.capabilitiesInformation).WithSeededIdentifiers()
+		if err != nil {
+			eventChannel <- &NodeEvent{
+				Type:  InternalFailure,
+				Error: fmt.Errorf("failed to create PeerHandler: %s", err.Error()),
+			}
+
+			flowConnection.Close()
+			continue
+		}
+
+		go peerHandler.StartHandling()
 	}
 }
 
