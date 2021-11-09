@@ -262,10 +262,10 @@ func NewMessageByteReader() *MessageByteReader {
 func (reader *MessageByteReader) ReceiveBytes(incoming []byte) ([]*Message, error) {
 	reader.incomingBuffer = append(reader.incomingBuffer, incoming...)
 
-	setOfExtractedMessages := make([]*Message, 3)
+	setOfExtractedMessages := make([]*Message, 0, 3)
 
 	for {
-		nextMessageInStream, err := reader.ReceiveBytesButReturnAtMostOneMessage(reader.incomingBuffer)
+		nextMessageInStream, err := reader.ReceiveBytesButReturnAtMostOneMessage([]byte{})
 
 		if err != nil {
 			return nil, err
